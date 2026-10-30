@@ -14,6 +14,8 @@ const dayKey = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Ko
 const clone = v => v == null ? v : JSON.parse(JSON.stringify(v));
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const num = v => v == null || v === '' ? null : +v;
+const trimEnd = a => { const x = a.slice(); while (x.length && !x[x.length - 1]) x.pop(); return x; };
+const isoAdd = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 
 // Same parser as kcalFromDs() in the portal: '2000-1500=500' -> 1500, '+' form -> the total.
 export function kcalFromDs(ds) {
@@ -35,7 +37,7 @@ async function must(q) {
 }
 
 export function createStore(who) {
-  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {} };
+  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [] };
   const L = {}; // listeners by key: 'clients', 'edits', 'feed', 'meta/sync', 'settings/rules', 'edits/<id>', 'feed/<day>'
   const savedFeed = new Set(); // feed item timestamps already in change_log
 
@@ -51,7 +53,7 @@ export function createStore(who) {
   const fireAll = () => Object.keys(L).forEach(fire);
 
   function build(rows) {
-    const { clients, sheet, phases, weighins, health, notes, log, settings } = rows;
+    const { clients, sheet, phases, weighins, health, notes, log, settings, expired } = rows;
     const sheetOf = Object.fromEntries(sheet.map(s => [s.client_id, s]));
     const by = (list, key = 'client_id') => list.reduce((o, x) => ((o[x[key]] ||= []).push(x), o), {});
     const phOf = by(phases), wiOf = by(weighins), hrOf = by(health), ntOf = by(notes);
@@ -74,7 +76,7 @@ export function createStore(who) {
       const e = {
         sheet: { rs: s.rs, start: s.start || '', end: s.end || '', form: s.form || '', wo: s.wo || '', app: s.app ?? null, cf: s.cf ?? null,
           rem: s.rem || 'TBD', st: s.st || 'TBD', act: s.act || 'TBD', note: s.note || '', cs: s.cs || 'TBD', wn: s.wn || '', rf: s.rf || '',
-          ds: s.ds || '', w: s.w || [], dn: s.dn || '', dds: s.dds || '' },
+          ds: s.ds || '', w: s.w || [], dn: s.dn || '', dds: s.dds || '', em: !!s.end_typed },
       };
       if (c.expired_at) Object.assign(e.sheet, { archived: true, expiredAt: c.expired_at });
       if (set.phase) e.phase = c.phase;
@@ -91,6 +93,10 @@ export function createStore(who) {
       if (hr) e.hr = Object.fromEntries(hr.map(h => [h.category, { r: h.result || '', n: h.note || '', at: Date.parse(h.updated_at) }]));
       S.edits[c.id] = e;
     }
+
+    // Old rows of the "Expired and hold" tab (sheet only). A row linked to a client was reactivated.
+    S.hist = expired.map(x => ({ id: x.id, name: x.name, coach: x.coach || '', rs: x.rs || '', start: x.start || '', end: x.end || '',
+      xn: trimEnd(x.x || []), nbg: x.nbg || '', sbg: x.sbg || '', hist: true, archived: true }));
 
     S.feed = {};
     savedFeed.clear();
@@ -113,7 +119,7 @@ export function createStore(who) {
 
   async function load() {
     const since = new Date(Date.now() - 60 * 864e5).toISOString();
-    const [clients, sheet, phases, weighins, health, notes, log, settings] = await Promise.all([
+    const [clients, sheet, phases, weighins, health, notes, log, settings, expired] = await Promise.all([
       all(db.from('clients').select('*')),
       all(db.from('sheet_rows').select('*')),
       all(db.from('phases').select('client_id,n,type,form,date,summary,med,secs').order('n')),
@@ -122,8 +128,9 @@ export function createStore(who) {
       all(db.from('client_notes').select('*').order('at', { ascending: false })),
       all(db.from('change_log').select('*').eq('undone', false).gte('at', since).order('at', { ascending: false }).limit(1000)),
       all(db.from('settings').select('*').in('key', ['tag_rules'])),
+      all(db.from('expired_rows').select('*').is('client_id', null).order('created_at').range(0, 4999)),
     ]);
-    build({ clients, sheet, phases, weighins, health, notes, log, settings });
+    build({ clients, sheet, phases, weighins, health, notes, log, settings, expired });
   }
 
   // ---- writes: one edits document in, the matching table writes out ----
@@ -141,6 +148,13 @@ export function createStore(who) {
   let queue = Promise.resolve();
   const enqueue = fn => { const run = queue.then(fn); queue = run.catch(() => {}); return run; };
   function saveEdits(id, next) {
+    const h = S.hist.find(x => x.id === id);
+    if (h) {
+      const s = next.sheet || {};
+      Object.assign(h, { rs: s.rs ?? h.rs, start: s.start ?? h.start, end: s.end ?? h.end, xn: s.xn ? s.xn.slice() : h.xn });
+      if (s.react) S.hist = S.hist.filter(x => x !== h);
+      return enqueue(() => writeHist(id, s, h.name));
+    }
     const prev = clone(S.edits[id] || {});
     S.edits[id] = clone(next);
     return enqueue(() => writeEdits(id, prev, next));
@@ -198,14 +212,48 @@ export function createStore(who) {
   const SHEET_COLS = ['rs', 'start', 'end', 'form', 'wo', 'app', 'cf', 'rem', 'st', 'act', 'note', 'cs', 'wn', 'rf', 'ds', 'w', 'dn', 'dds'];
   async function writeSheet(id, prev, next) {
     const patch = {};
-    for (const k of SHEET_COLS) if (!same(prev[k], next[k])) patch[k === 'end' ? 'end' : k] = next[k] === '' && (k === 'start' || k === 'end') ? null : next[k];
-    if ('end' in patch) patch.end_typed = true;
+    for (const k of SHEET_COLS) if (!same(prev[k], next[k])) patch[k] = next[k] === '' && (k === 'start' || k === 'end') ? null : next[k];
+    if (!!prev.em !== !!next.em) patch.end_typed = !!next.em; // typed end date (extension) is never auto-overwritten
     if (Object.keys(patch).length) await must(db.from('sheet_rows').update(patch).eq('client_id', id));
     if ('ds' in patch) {
       const k = kcalFromDs(patch.ds);
       if (k != null) { const body = bodyOf(id); body.calories = k; await saveBody(id, body); }
     }
-    if (prev.archived !== next.archived) console.warn('Expire / reactivate arrives with the Sheet (step 4); not saved:', id);
+    // Expired: off Check-in / Progress / All Dates, kept in full, removed a year later (scheduled job, step 6).
+    if (!!prev.archived !== !!next.archived || (prev.expiredAt || '') !== (next.expiredAt || '')) {
+      const at = next.archived ? next.expiredAt || new Date().toISOString().slice(0, 10) : null;
+      await saveClient(id, { expired_at: at, purge_after: at ? isoAdd(at, 365) : null });
+    }
+  }
+
+  async function writeHist(id, s, name) {
+    const patch = { rs: s.rs || '', start: String(s.start ?? ''), end: String(s.end ?? '') };
+    if (s.xn) patch.x = Array.from({ length: 16 }, (_, i) => s.xn[i] || '');
+    if (s.react) { // moved back: link the row to the client it became, which hides it from the tab
+      const c = Object.values(S.rows).find(r => r.client.name.toLowerCase() === String(name || '').toLowerCase());
+      patch.client_id = c ? c.client.id : null;
+    }
+    await must(db.from('expired_rows').update(patch).eq('id', id));
+  }
+
+  // Add Client and Move back (old sheet rows) create a new client with a row on every tab.
+  function addClient(r) {
+    const client = { id: r.id, name: r.name, coach: r.coach, email: '', phase: 1, goal: 'Not set', goal_src: '', profile: {}, body: {}, plan_of_action: '' };
+    const sheet = { client_id: r.id, rs: r.rs, start: r.start || null, end: r.end || null, end_typed: false, form: r.form || '', wo: r.wo || '',
+      app: r.app ?? null, cf: r.cf ?? null, rem: r.rem || 'TBD', st: r.st || 'TBD', act: r.act || 'TBD', note: r.note || '', cs: r.cs || 'TBD',
+      wn: r.wn || '', rf: r.rf || '', ds: r.ds || '', w: (r.w || []).concat(Array(12).fill('')).slice(0, 12), dn: '', dds: '' };
+    S.rows[r.id] = { client: { ...client }, sheet };
+    S.clients[r.id] = { name: r.name, coach: r.coach, email: '', goal: 'Not set', goalSrc: '', obForm: '', obDate: '', profile: undefined,
+      formWeight: null, target: null, kcal: null, kcalText: r.ds || '', phases: [], tz: { weights: [] } };
+    S.edits[r.id] = { sheet: { dn: '', dds: '', ...r, em: false } };
+    delete S.edits[r.id].sheet.id; delete S.edits[r.id].sheet.name; delete S.edits[r.id].sheet.coach;
+    setTimeout(() => fire('clients'), 0);
+    return enqueue(async () => {
+      await must(db.from('clients').insert(client));
+      await must(db.from('sheet_rows').insert(sheet));
+    }).catch(err => {
+      window.dispatchEvent(new CustomEvent('ttl-save-failed', { detail: /duplicate|unique/i.test(err.message) ? r.name + ' already exists (maybe expired). Use Move back instead.' : '' }));
+    });
   }
 
   async function writeFeed(doc) {
@@ -257,6 +305,8 @@ export function createStore(who) {
     load,
     async reload() { await queue; await load(); fireAll(); },
     fireAll,
+    hist: () => S.hist,
+    addClient,
     // Stand-in for the Sheet (window.XS) until step 4: only the calorie sync from the profile uses it.
     sheetApply(items) {
       const applied = [];

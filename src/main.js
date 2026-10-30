@@ -52,10 +52,18 @@ async function portal() {
   document.getElementById('whoSwitch').onclick = () => { setWho(''); location.reload(); };
   document.getElementById('logOut').onclick = async () => { await db.auth.signOut(); location.reload(); };
 
-  const s = document.createElement('script');
-  s.src = '/portal.js';
-  s.onload = () => store.fireAll();
-  document.body.appendChild(s);
+  // Excel export for the Sheet; the library loads only when someone exports.
+  window.TTL_EXPORT = async (tabs, fileName) => {
+    const { default: writeExcelFile } = await import('write-excel-file/browser');
+    await writeExcelFile(tabs.map(t => ({ sheet: t.sheet, stickyRowsCount: 1, stickyColumnsCount: 1,
+      data: [t.header.map(h => ({ value: h, fontWeight: 'bold' })), ...t.rows.map(r => r.map(v => v === '' ? null : v))] }))).toFile(fileName);
+  };
+
+  // The portal and the Sheet are the demo's own scripts (public/), loaded in order.
+  const load = src => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = fail; document.body.appendChild(s); });
+  await load('/portal.js');
+  await load('/sheet.js');
+  store.fireAll();
 
   // Pick up the other coach's changes when coming back to the tab, and every 5 minutes.
   const refresh = () => { if (document.visibilityState === 'visible') store.reload().catch(() => {}); };

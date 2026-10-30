@@ -607,7 +607,8 @@ function portalRefresh(manual){editing=false;EDITN=null;rebuild();renderFeed();i
 window.portalRefresh=portalRefresh;
 if(!window.XS)window.XS={open(){toast('The Sheet arrives in the next build step.')},react(){toast('Reactivate arrives with the Sheet in the next build step.')},refresh(){},rows(){return[]},
   apply(items,label){const r=DB&&DB.sheetApply?DB.sheetApply(items):{applied:[],skipped:items};r.applied.forEach(it=>logEvent({client:it.id,title:label||'Calories updated',detail:'Deficit / Surplus → '+it.raw}));return r}};
-window.addEventListener('ttl-save-failed',()=>toast('Could not save. Check your connection and try again.'));
+window.addEventListener('ttl-save-failed',e=>toast((e.detail)||'Could not save. Check your connection and try again.'));
+function addClientDoc(r){if(DB&&DB.addClient)DB.addClient(r)} // used by the Sheet: Add client, Move back
 async function boot(){
   render();renderFeed();
   DB=window.TTL_STORE||null;ME=window.TTL_WHO||null;USER={profiles:async ids=>Object.fromEntries(ids.map(i=>[i,{name:i}]))};
