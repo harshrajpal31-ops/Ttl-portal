@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.netlify/
+# Client health data stays off GitHub: it lives in Supabase and the original zip.
+handover/data/
+handover/reference/portal-demo.html

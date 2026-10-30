@@ -1,0 +1,17 @@
+{
+  "name": "ttl-portal",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "import:check": "node scripts/import.mjs --dry-run",
+    "import": "node --env-file=.env scripts/import.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0"
+  },
+  "devDependencies": {
+    "vite": "^6.4.5"
+  }
+}
