@@ -14,7 +14,7 @@ function loginScreen() {
   document.getElementById('f').onsubmit = async ev => {
     ev.preventDefault();
     const { error } = await db.auth.signInWithPassword({ email: document.getElementById('e').value.trim(), password: document.getElementById('p').value });
-    document.getElementById('err').textContent = error ? 'Wrong email or password.' : '';
+    document.getElementById('err').textContent = !error ? '' : error.message === 'Invalid login credentials' ? 'Wrong email or password.' : 'Login failed: ' + error.message;
   };
 }
 
