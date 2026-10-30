@@ -1,0 +1,55 @@
+<main class="wrap">
+  <header class="head">
+    <div class="logo" aria-hidden="true"><img alt="" src="/logo_white.png"></div>
+    <div class="head-txt">
+      <h1>Coach Portal</h1>
+      <div class="sync" id="syncLine"><i></i>Connecting…</div>
+      <div class="sync wholine">Using as <b id="whoName"></b> · <button type="button" class="linkbtn" id="whoSwitch">Switch</button> · <button type="button" class="linkbtn" id="logOut">Log out</button></div>
+    </div>
+    <button class="refbtn" id="refreshBtn" type="button" title="Refresh" aria-label="Refresh the portal"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg><span>Refresh</span></button>
+    <button class="sheetbtn" id="openSheet" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>Sheet</button>
+  </header>
+
+  <div class="vswitch seg" role="tablist" aria-label="View">
+    <button role="tab" data-v="clients" aria-selected="true">Clients</button>
+    <button role="tab" data-v="updates" aria-selected="false">Recent updates <span class="vbadge" id="vbadge" hidden></span></button>
+  </div>
+  <div class="layout">
+  <div class="main-col">
+  <div class="controls">
+    <div class="srow">
+    <label class="search" for="q">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search" autocomplete="off">
+    </label>
+    <button class="fbtn" id="filterBtn" aria-haspopup="dialog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span class="fl">Filter</span><span class="fcount" id="fcount" hidden></span></button>
+    <button class="fbtn" id="tagsBtn" aria-haspopup="dialog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="8.5" r="1.3"/></svg><span class="fl">Tags</span><span class="fcount" id="tcount" hidden></span></button>
+    </div>
+    <div class="seg coachseg" id="coachSeg" role="group" aria-label="Coach"></div>
+    <div class="activef" id="activeF"></div>
+  </div>
+
+  <section class="grid" id="grid" aria-label="Clients"></section>
+  </div>
+  <aside class="feed" id="feed" aria-label="Recent updates">
+    <div class="feed-h"><h2>Recent updates</h2><label class="fsel"><span class="sr">Show</span><select id="feedType"><option value="all">All</option><option value="forms">Forms</option><option value="coach">Coach changes</option><option value="tags">Tags</option><option value="sync">Sync</option></select><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></label></div>
+    <div id="feedList"></div>
+    <button class="edit-btn rlink" id="feedSeen">Mark all read</button>
+  </aside>
+  </div>
+</main>
+
+<div class="rmodal" id="filters" hidden role="dialog" aria-modal="true" aria-labelledby="filtersT"><div class="rbox">
+  <div class="feed-h"><h2 id="filtersT">Filter</h2><button class="close" id="filtersX" aria-label="Close filter"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div id="filtersBody"></div>
+  <div class="nut-actions"><button class="btn" id="filtersClear">Clear</button><button class="btn btn-p" id="filtersDone">Show clients</button></div>
+</div></div>
+<div class="rmodal" id="rules" hidden role="dialog" aria-modal="true" aria-labelledby="rulesT"><div class="rbox">
+  <div class="feed-h"><h2 id="rulesT">Tag rules</h2><button class="close" id="rulesX" aria-label="Close rules"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <p class="foot">These are the fixed checks the sync runs for every client. Change a number and every tile updates.</p>
+  <div id="rulesBody"></div>
+  <div class="nut-actions"><button class="btn" id="rulesReset">Reset</button><button class="btn btn-p" id="rulesSave">Save</button></div>
+</div></div>
+<div class="scrim" id="scrim" hidden>
+  <article class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="p-name"></article>
+</div>

@@ -1,7 +1,11 @@
 import { db, getWho, setWho } from './supabase.js';
+import { createStore } from './store.js';
+import portalHTML from './portal.html?raw';
+import './portal.css';
+import './style.css';
 
 const app = document.getElementById('app');
-const shell = inner => `<div class="center"><div class="card"><div class="logo"><img src="/logo_white.png" alt=""></div>${inner}</div></div>`;
+const shell = inner => `<div class="auth"><div class="card"><div class="auth-logo"><img src="/logo_white.png" alt=""></div>${inner}</div></div>`;
 
 function loginScreen() {
   app.innerHTML = shell(`
@@ -14,7 +18,8 @@ function loginScreen() {
   document.getElementById('f').onsubmit = async ev => {
     ev.preventDefault();
     const { error } = await db.auth.signInWithPassword({ email: document.getElementById('e').value.trim(), password: document.getElementById('p').value });
-    document.getElementById('err').textContent = !error ? '' : error.message === 'Invalid login credentials' ? 'Wrong email or password.' : 'Login failed: ' + error.message;
+    const err = document.getElementById('err'); // gone already if the login worked
+    if (err) err.textContent = !error ? '' : error.message === 'Invalid login credentials' ? 'Wrong email or password.' : 'Login failed: ' + error.message;
   };
 }
 
@@ -25,20 +30,42 @@ function whoScreen() {
   app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(b.dataset.w); render(); });
 }
 
+let started = false;
 async function portal() {
-  // Step 3 ports the demo portal here. For now: prove the database connection.
-  const { count, error } = await db.from('clients').select('*', { count: 'exact', head: true }).is('expired_at', null);
-  app.innerHTML = shell(`
-    <h1>Hi ${getWho()}</h1>
-    <p class="muted">${error ? 'Database error: ' + error.message : count + ' active clients in the database.'}</p>
-    <button class="ghost" id="sw">Switch person</button><button class="ghost" id="out">Log out</button>`);
-  document.getElementById('sw').onclick = () => { setWho(''); render(); };
-  document.getElementById('out').onclick = () => db.auth.signOut();
+  if (started) return;
+  started = true;
+  const who = getWho();
+  app.innerHTML = shell(`<h1>Loading clients…</h1><p class="muted">Twice the Lean</p>`);
+  const store = createStore(who);
+  try { await store.load(); }
+  catch (err) {
+    started = false;
+    app.innerHTML = shell(`<h1>Could not load the portal</h1><p class="muted">${String(err.message || err).replace(/</g, '&lt;')}</p><button id="again">Try again</button>`);
+    document.getElementById('again').onclick = () => portal();
+    return;
+  }
+  window.TTL_STORE = store;
+  window.TTL_WHO = who;
+  document.title = 'Coach Portal';
+  app.innerHTML = portalHTML;
+  document.getElementById('whoName').textContent = who;
+  document.getElementById('whoSwitch').onclick = () => { setWho(''); location.reload(); };
+  document.getElementById('logOut').onclick = async () => { await db.auth.signOut(); location.reload(); };
+
+  const s = document.createElement('script');
+  s.src = '/portal.js';
+  s.onload = () => store.fireAll();
+  document.body.appendChild(s);
+
+  // Pick up the other coach's changes when coming back to the tab, and every 5 minutes.
+  const refresh = () => { if (document.visibilityState === 'visible') store.reload().catch(() => {}); };
+  document.addEventListener('visibilitychange', refresh);
+  setInterval(refresh, 5 * 60e3);
 }
 
 async function render() {
   const { data: { session } } = await db.auth.getSession();
-  if (!session) return loginScreen();
+  if (!session) { if (started) location.reload(); return loginScreen(); }
   if (!getWho()) return whoScreen();
   portal();
 }
