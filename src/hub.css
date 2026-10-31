@@ -11,6 +11,7 @@
 .th-tile:hover{transform:translateY(-2px);box-shadow:0 7px 0 var(--accent),0 18px 30px rgba(20,32,73,.14)}
 .th-tile:active{transform:translateY(4px);box-shadow:0 1px 0 var(--accent),0 6px 12px rgba(20,32,73,.10)}
 .th-ic{width:48px;height:48px;border-radius:14px;background:var(--accent-tint);color:var(--accent);display:grid;place-items:center;margin-bottom:auto}
+.th-emo{font-size:28px;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif} /* emoji icons: Apple style on iPhone/Mac */
 .th-tile b{font-size:20px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:6px;margin-top:14px}
 .th-ext{color:var(--label-2);display:inline-flex}
 .th-d{font-size:13px;color:var(--label-2);line-height:1.35}

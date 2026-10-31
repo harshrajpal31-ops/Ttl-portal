@@ -27,10 +27,10 @@ home.innerHTML=`<div class="th-wrap">
   <header class="th-head"><div class="logo" aria-hidden="true"><img alt="" src="/logo_white.png"></div>
     <div><div class="th-date" id="thDate"></div><h1 id="thHi"></h1></div></header>
   <nav class="th-grid" aria-label="Open">
-    <a class="th-tile" href="${HUB_URL}" target="_blank" rel="noopener"><span class="th-ic">${svg(I.hub,24)}</span><b>Hub <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Twice the Lean hub</span></a>
-    <button class="th-tile" type="button" data-go="sheet"><span class="th-ic">${svg(I.sheet,24)}</span><b>Sheet</b><span class="th-d">Check-in, Progress, Dates, Expired</span></button>
-    <button class="th-tile" type="button" data-go="dashboard"><span class="th-ic">${svg(I.dash,24)}</span><b>Dashboard</b><span class="th-d">Your day at a glance</span></button>
-    <button class="th-tile" type="button" data-go="portal"><span class="th-ic">${svg(I.portal,24)}</span><b>Portal</b><span class="th-d" id="thCount">Clients and profiles</span></button>
+    <a class="th-tile" href="${HUB_URL}" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">🏠</span><b>Hub <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Twice the Lean hub</span></a>
+    <button class="th-tile" type="button" data-go="sheet"><span class="th-ic th-emo" aria-hidden="true">📊</span><b>Sheet</b><span class="th-d">Check-in, Progress, Dates, Expired</span></button>
+    <button class="th-tile" type="button" data-go="dashboard"><span class="th-ic th-emo" aria-hidden="true">📅</span><b>Dashboard</b><span class="th-d">Your day at a glance</span></button>
+    <button class="th-tile" type="button" data-go="portal"><span class="th-ic th-emo" aria-hidden="true">🚀</span><b>Portal</b><span class="th-d" id="thCount">Clients and profiles</span></button>
   </nav>
   <p class="th-foot">Using as <b>${esc(WHO)}</b> · <button type="button" class="linkbtn" id="thSwitch">Switch</button> · <button type="button" class="linkbtn" id="thOut">Log out</button></p>
 </div>`;
