@@ -1,9 +1,11 @@
 /* Login and "who's using it" screens. The portal's own styles are in portal.css. */
+body { margin: 0; } /* the demo ran with no page margin; without this a light frame shows around the login pattern */
 .auth { --brand: #3F59A7; --tile: #3F59A7; --text: #1D1D1F; --muted: #6B6F7B; --line: #E2E4EA;
-  min-height: 100vh; display: grid; place-items: center; padding: 16px; background: #F2F2F7; color: var(--text);
+  min-height: 100vh; display: grid; place-items: center; padding: 16px; color: var(--text);
+  background: #3F59A7 url(/login-bg.webp) center / cover no-repeat; /* brand pattern behind the white card */
   font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .auth * { box-sizing: border-box; }
-.auth .card { width: 100%; max-width: 360px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+.auth .card { width: 100%; max-width: 360px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 12px 40px rgba(16,28,72,.28); }
 .auth .auth-logo { width: 56px; height: 56px; border-radius: 14px; background: var(--tile); display: grid; place-items: center; margin-bottom: 14px; }
 .auth .auth-logo img { width: 34px; }
 .auth h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: 0; line-height: 1.3; }
