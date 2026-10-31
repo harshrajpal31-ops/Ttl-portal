@@ -2,6 +2,7 @@ import { db, getWho, setWho } from './supabase.js';
 import { createStore } from './store.js';
 import portalHTML from './portal.html?raw';
 import './portal.css';
+import './hub.css';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -64,6 +65,7 @@ async function portal() {
   await load('/portal.js');
   await load('/sheet.js');
   store.fireAll();
+  await load('/hub.js'); // Home screen + Dashboard, on top of the portal and the Sheet
 
   // Pick up the other coach's changes when coming back to the tab, and every 5 minutes.
   const refresh = () => { if (document.visibilityState === 'visible') store.reload().catch(() => {}); };
