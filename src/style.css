@@ -5,7 +5,7 @@ body { margin: 0; } /* the demo ran with no page margin; without this a light fr
   background: #3F59A7 url(/login-bg.webp) center / cover no-repeat; /* brand pattern behind the white card */
   font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .auth * { box-sizing: border-box; }
-.auth .card { width: 100%; max-width: 360px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 12px 40px rgba(16,28,72,.28); }
+.auth .card { width: 100%; max-width: 360px; background: #fff; border: 2.5px solid #111; border-radius: 16px; padding: 24px; box-shadow: 8px 8px 0 #111; } /* raised 3D card: black outline + solid offset shadow */
 .auth .auth-logo { width: 56px; height: 56px; border-radius: 14px; background: var(--tile); display: grid; place-items: center; margin-bottom: 14px; }
 .auth .auth-logo img { width: 34px; }
 .auth h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: 0; line-height: 1.3; }
