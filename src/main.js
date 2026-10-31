@@ -6,7 +6,7 @@ import './hub.css';
 import './style.css';
 
 const app = document.getElementById('app');
-const shell = inner => `<div class="auth"><div class="card"><div class="auth-logo"><img src="/logo_white.png" alt=""></div>${inner}</div></div>`;
+const shell = (inner, cls = '') => `<div class="auth ${cls}"><div class="card"><div class="auth-logo"><img src="/logo_white.png" alt=""></div>${inner}</div></div>`;
 
 function loginScreen() {
   app.innerHTML = shell(`
@@ -15,7 +15,7 @@ function loginScreen() {
       <label for="e">Email</label><input id="e" type="email" autocomplete="username" required>
       <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
       <button>Log in</button><div class="err" id="err"></div>
-    </form>`);
+    </form>`, 'login');
   document.getElementById('f').onsubmit = async ev => {
     ev.preventDefault();
     const { error } = await db.auth.signInWithPassword({ email: document.getElementById('e').value.trim(), password: document.getElementById('p').value });
