@@ -5,3 +5,5 @@ dist/
 # Client health data stays off GitHub: it lives in Supabase and the original zip.
 handover/data/
 handover/reference/portal-demo.html
+# Screens board workspace (screenshots with sample data), not part of the app
+.screens/
