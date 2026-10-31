@@ -2,6 +2,7 @@
 .ttl-home,.ttl-dash{min-height:100vh;background:var(--ground);color:var(--label);font-family:var(--sys)}
 .th-wrap,.td-wrap{max-width:1000px;margin:0 auto;padding:28px max(16px,env(safe-area-inset-left,0px)) 56px;display:flex;flex-direction:column;gap:22px}
 .th-head{display:flex;align-items:center;gap:14px}
+.th-head .logo{background:var(--accent)} /* brand-blue logo on Home (Harsh asked per screen) */
 .th-head h1,.td-hi h1{font-size:30px;line-height:1.1}
 .th-date{font-size:13px;color:var(--label-2)}
 .th-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
