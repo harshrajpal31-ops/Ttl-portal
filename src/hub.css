@@ -126,7 +126,7 @@
 .td-scroll{max-height:150px;overflow-y:auto;overscroll-behavior:contain;padding-bottom:2px}
 .td-wsub{display:flex;align-items:center;gap:10px}
 .td-scrim{position:fixed;inset:0;z-index:60;background:rgba(15,20,40,.45)}
-.td-pop{position:fixed;z-index:61;inset:0;margin:auto;width:min(880px,calc(100vw - 32px));height:max-content;max-height:calc(100vh - 56px);background:var(--card);border-radius:24px;
+.td-pop{position:fixed;z-index:61;inset:0;margin:auto;width:min(880px,calc(100vw - 32px));height:max-content;max-height:calc(100vh - 56px);max-height:calc(100dvh - 56px);background:var(--card);border-radius:24px;
   box-shadow:0 24px 70px rgba(10,16,40,.35);display:flex;flex-direction:column;overflow:hidden;cursor:default}
 .td-pop.in{animation:tdpop .28s cubic-bezier(.2,.85,.25,1)}
 @keyframes tdpop{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
@@ -134,7 +134,7 @@
 .td-poph{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 12px;border-bottom:1px solid var(--sep)}
 .td-poph h2{font-size:22px}.td-poph h2 em{font-style:normal;color:var(--label-3);font-weight:600}
 .td-poph>div{display:flex;flex-direction:column;gap:3px}
-.td-popb{overflow-y:auto;overscroll-behavior:contain;padding:12px 0 6px}
+.td-popb{overflow-y:auto;overscroll-behavior:contain;padding:12px 0 6px;min-height:0;flex:1 1 auto}
 .td-inpop .td-tlist{max-height:none}
 .td-plist{display:flex;flex-direction:column;padding:0 12px}
 .td-prow{display:flex;align-items:center;gap:12px;border:0;background:transparent;font:inherit;color:var(--label);text-align:left;padding:10px 8px;border-radius:12px;cursor:pointer;flex-wrap:wrap}
@@ -144,3 +144,7 @@
 .td-pst{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--master-bg);color:var(--master);white-space:nowrap}
 .td-pst.alt{background:var(--fill);color:var(--label)}
 .td-pgrp{padding:6px 0 10px}.td-pgrp .td-tgh{padding:6px 20px}
+
+/* phone: keep the expand button on the title line; the sync note wraps under the title instead */
+.td-th{flex-wrap:nowrap;align-items:flex-start}
+.td-tl{min-width:0}
