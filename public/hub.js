@@ -163,6 +163,19 @@ function checkinHTML(){
     <div class="ci-big"><b>${closed}</b><span>closed out of ${all}</span><em>${pct}%</em></div>
     <div class="ci-bar" role="img" aria-label="${pct}% closed"><i style="width:${pct}%"></i></div></section>`;
 }
+/* Focus timer: counts up from 00:00. Keeps running across screens and refreshes (saved on this device). */
+const TKEY='ttl-timer-'+WHO;let TM={run:false,start:0,acc:0};try{TM=Object.assign(TM,JSON.parse(localStorage.getItem(TKEY)||'{}'))}catch(_){}
+const tmSave=()=>{try{localStorage.setItem(TKEY,JSON.stringify(TM))}catch(_){}};
+const tmMs=()=>TM.acc+(TM.run?Date.now()-TM.start:0);
+const tmFmt=ms=>{const t=Math.floor(ms/1000),h=Math.floor(t/3600),m=Math.floor(t%3600/60),x=t%60,p=n=>String(n).padStart(2,'0');return h?`${h}:${p(m)}:${p(x)}`:`${p(m)}:${p(x)}`};
+function tmDo(a){if(a==='start'&&!TM.run){TM.run=true;TM.start=Date.now()}else if(a==='pause'&&TM.run){TM.acc=tmMs();TM.run=false}else if(a==='stop'){TM={run:false,start:0,acc:0}}tmSave();renderDash()}
+setInterval(()=>{if(!TM.run||dash.hidden)return;dash.querySelectorAll('.tm-time').forEach(e=>e.textContent=tmFmt(tmMs()))},500);
+function timerHTML(){const ms=tmMs(),st=TM.run?'Running':ms?'Paused':'Ready';
+  return `<section class="td-card td-timer${TM.run?' run':''}"><div class="tm-top"><span>Focus timer</span><em>${st}</em></div>
+    <div class="tm-time" aria-live="off">${tmFmt(ms)}</div>
+    <div class="tm-btns"><button type="button" data-timer="start" ${TM.run?'disabled':''} aria-label="Start">${svg('<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>',16)}<span>${ms&&!TM.run?'Resume':'Start'}</span></button>
+      <button type="button" data-timer="pause" ${TM.run?'':'disabled'} aria-label="Pause">${svg('<path d="M8 5v14M16 5v14"/>',16)}<span>Pause</span></button>
+      <button type="button" data-timer="stop" ${ms?'':'disabled'} aria-label="Stop and reset">${svg('<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',16)}<span>Stop</span></button></div></section>`}
 function needsHTML(){const {needs}=dashData();
   return `<section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
       <p class="td-sub">Master reviews, calls and reviews waiting on ${TEAM_ON()?esc(VIEW):'you'}. Tap a name for details.</p>
@@ -174,10 +187,10 @@ function watchHTML(){const {tagged}=dashData();
   </section>`}
 
 /* ---------- Widgets: a 12-column grid each coach can rearrange and resize (wide screens). Saved on this device, per coach. ---------- */
-const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
-const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
-const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['calls',4,5],['needs',8,5],['watch',12,4]];
-const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],calls:[3,4],needs:[3,3],watch:[4,3]};
+const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),timer:()=>timerHTML(),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
+const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',timer:'Timer',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
+const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['timer',2,3],['calls',4,5],['needs',6,5],['watch',12,4]];
+const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],timer:[2,3],calls:[3,4],needs:[3,3],watch:[4,3]};
 const W_ROW=56,W_GAP=16,LKEY='ttl-dash-layout-v1-'+WHO;
 const defLay=()=>W_DEF.map(([id,w,h])=>({id,w,h}));
 function loadLay(){try{const s=JSON.parse(localStorage.getItem(LKEY)||'null');if(Array.isArray(s)){const ok=s.filter(x=>W_HTML[x.id]&&x.w>0&&x.h>0);defLay().forEach(d=>{if(!ok.find(x=>x.id===d.id))ok.push(d)});return ok}}catch(_){}return defLay()}
@@ -234,6 +247,7 @@ dash.addEventListener('click',e=>{
   if(e.target.closest('[data-layedit]')){EDITL=!EDITL;POP=null;renderDash();return}
   if(e.target.closest('[data-layreset]')){LAY=defLay();saveLay();renderDash();return}
   if(EDITL&&e.target.closest('.td-grid'))return;
+  const tmb=e.target.closest('[data-timer]');if(tmb){tmDo(tmb.dataset.timer);return}
   const tb=e.target.closest('[data-ttab]');if(tb){TTAB=tb.dataset.ttab;renderDash();return}
   const ck=e.target.closest('[data-tdone]');if(ck&&TASKS){const t=TASKS.find(x=>String(x.id)===ck.dataset.tdone);if(!t)return;const was=t.status;t.status=was==='Done'?'Not started':'Done';renderDash();
     Promise.resolve(window.TTL_TASKS&&TTL_TASKS.setDone&&TTL_TASKS.setDone(t.id,t.status==='Done')).catch(()=>{t.status=was;renderDash();toast('Could not update Notion. Try again.')});return}

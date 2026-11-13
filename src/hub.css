@@ -199,6 +199,19 @@ button.td-ltr{cursor:pointer}button.td-ltr:hover{background:var(--ground)}
 @keyframes cibar{from{background-position:160% 0}to{background-position:-60% 0}}
 @media (prefers-reduced-motion:reduce){.ci-bar i{animation:none;background-image:none}}
 
+/* Focus timer: a small dark square, like a phone widget */
+.td-timer{background:#141A2E;color:#fff;display:flex;flex-direction:column;gap:8px;justify-content:space-between;padding:14px 16px;box-shadow:0 6px 18px rgba(20,26,46,.25)}
+.tm-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.05em}
+.tm-top em{font-style:normal;font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.12);color:#fff;letter-spacing:0;text-transform:none}
+.td-timer.run .tm-top em{background:#34C759;color:#062a12}
+.tm-time{font-size:46px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;text-align:center;padding:6px 0}
+.tm-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tm-btns button{display:flex;flex-direction:column;align-items:center;gap:3px;border:0;border-radius:12px;padding:8px 2px;min-height:44px;font:inherit;font-size:11px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;transition:transform .12s,background .15s}
+.tm-btns button:active{transform:scale(.95)}
+.tm-btns button[data-timer=start]{background:#34C759;color:#062a12}
+.tm-btns button[data-timer=stop]{background:rgba(255,69,58,.9)}
+.tm-btns button:disabled{opacity:.35;cursor:default}
+
 @media (min-width:1100px){
   .td-wrap{max-width:none;padding-inline:max(32px,env(safe-area-inset-left,0px))}
   .td-edit{display:inline-flex}
