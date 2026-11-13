@@ -148,3 +148,9 @@
 /* phone: keep the expand button on the title line; the sync note wraps under the title instead */
 .td-th{flex-wrap:nowrap;align-items:flex-start}
 .td-tl{min-width:0}
+
+/* Team view (head coach only): pick whose day to look at */
+.td-team{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.td-coach{border:1.5px solid var(--sep);background:var(--card);color:var(--label);font:inherit;font-size:15px;font-weight:600;border-radius:14px;padding:6px 12px 6px 6px;display:inline-flex;align-items:center;gap:9px;cursor:pointer}
+.td-coach em{font-style:normal;font-size:12px;font-weight:500;color:var(--label-2)}
+.td-coach[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-tint)}

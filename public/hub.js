@@ -38,14 +38,21 @@ app.appendChild(home);
 
 /* ---------- Dashboard ----------
    Tasks and calls come from providers that the Notion and calendar connections will set:
-     window.TTL_TASKS = { list: async () => [{id, title, client, status: 'Not started'|'In progress'|'Done', due: one of Notion's Due Date options}],
+     window.TTL_TASKS = { list: async (coach) => [{id, title, client, status: 'Not started'|'In progress'|'Done', due: one of Notion's Due Date options}],
                           setDone: async (id, done) => {} }
-     window.TTL_CALLS = { list: async (from, days) => [{start: Date|ISO, end: Date|ISO, kind, client}] }
+     window.TTL_CALLS = { list: async (from, days, coach) => [{start: Date|ISO, end: Date|ISO, kind, client}] }
    Without a provider the section shows "Connecting next". */
 const dash=document.createElement('section');dash.className='ttl-dash';dash.hidden=true;app.appendChild(dash);
 // Due values are the Notion "Due Date" options, as they are in the Daily Tasks database.
 const DUE=['Today','Tomorrow','Later This week','Next week','Undecided'];
-let TEAM=false,TTAB='Today',POP=null,POPNEW=false,CALDAY=0,TASKS=null,CALLS=null,SYNCED=null;
+// Only the head coach gets the Team view; every other coach sees just their own day.
+// VIEW is whose day is on screen: the coach using the portal, or (head coach only) a team member picked under Team.
+const OWNER='Harsh',IS_OWNER=WHO===OWNER;
+let VIEW=WHO;
+const team=()=>[...new Set(CLIENTS.map(c=>c.coach))].filter(c=>c&&c!==WHO).sort();
+const TEAM_ON=()=>VIEW!==WHO;
+const whose=()=>TEAM_ON()?VIEW+"'s":'My';
+let TTAB='Today',POP=null,POPNEW=false,CALDAY=0,TASKS=null,CALLS=null,SYNCED=null;
 const ST_TASK={'Not started':'ns','In progress':'ip','Done':'dn'};
 const CALL_KIND={'Check-in call':['ci','Calendly'],'Master check-in':['ms','Master'],'Goal-setting call':['gs','New client'],'Renewal call':['rn','Renewal']};
 const istDay=d=>new Date(d).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
@@ -59,9 +66,9 @@ const expandBtn=(k,label)=>`<button type="button" class="td-exp" data-pop="${k}"
 // before Notion and the calendar are connected. Never runs on the live portal.
 const SAMPLE=/^screen-changes--/.test(location.hostname);
 if(SAMPLE&&!window.TTL_TASKS){
-  const names=()=>mine().slice(0,8).map(c=>c.name),T=(i,what,status,due)=>({id:i,title:(names()[i%Math.max(names().length,1)]||'Client')+' – '+what,status,due});
-  let mem=null;
-  window.TTL_TASKS={list:async()=>mem||(mem=[T(0,'Send revised meal plan','In progress','Today'),T(1,'Record Loom for Plan of Action','Not started','Today'),T(2,'Review progress photos','Not started','Today'),
+  const names=()=>CLIENTS.filter(c=>c.coach===VIEW).slice(0,8).map(c=>c.name),T=(i,what,status,due)=>({id:i,title:(names()[i%Math.max(names().length,1)]||'Client')+' – '+what,status,due});
+  const mem={};
+  window.TTL_TASKS={list:async coach=>mem[coach]||(mem[coach]=[T(0,'Send revised meal plan','In progress','Today'),T(1,'Record Loom for Plan of Action','Not started','Today'),T(2,'Review progress photos','Not started','Today'),
     T(3,'Update Trainerize programme','Done','Today'),T(4,'Swap leg day exercises','Not started','Today'),T(5,'Check blood report','Not started','Today'),
     T(6,'Prepare Accelerator pitch','Not started','Tomorrow'),T(7,'Refeed week plan','Not started','Tomorrow'),T(0,'Renewal call notes','Not started','Later This week'),T(1,'Ask for blood reports','Not started','Next week')].map((t,i)=>Object.assign(t,{id:i}))),
     setDone:async()=>{}};
@@ -70,8 +77,8 @@ if(SAMPLE&&!window.TTL_TASKS){
     C(2,10,0,30,'Check-in call',5),C(2,15,0,45,'Master check-in',6),C(3,11,0,45,'Goal-setting call',7),C(4,9,0,30,'Check-in call',0),C(5,12,0,45,'Master check-in',1)]};
 }
 async function loadFeeds(){
-  try{if(window.TTL_TASKS){TASKS=await TTL_TASKS.list();SYNCED=new Date()}}catch(_){TASKS=null}
-  try{if(window.TTL_CALLS)CALLS=(await TTL_CALLS.list(new Date(),7)).map(c=>Object.assign({},c,{start:new Date(c.start),end:new Date(c.end)})).sort((a,b)=>a.start-b.start)}catch(_){CALLS=null}
+  try{if(window.TTL_TASKS){TASKS=await TTL_TASKS.list(VIEW);SYNCED=new Date()}}catch(_){TASKS=null}
+  try{if(window.TTL_CALLS)CALLS=(await TTL_CALLS.list(new Date(),7,VIEW)).map(c=>Object.assign({},c,{start:new Date(c.start),end:new Date(c.end)})).sort((a,b)=>a.start-b.start)}catch(_){CALLS=null}
   renderDash();
 }
 // A Notion task is one line: "Client – what to do". If a separate client comes through, it goes in front, never underneath.
@@ -87,7 +94,7 @@ function tasksInner(){
 const syncLine=()=>`<span class="td-sync"><i></i>${SAMPLE?'Sample tasks for testing, not from Notion':'Synced with Notion'+(SYNCED?' at '+tFmt(SYNCED):'')}</span>`;
 function tasksHTML(){
   if(!window.TTL_TASKS||!TASKS)return `<section class="td-card td-soon"><div class="td-h"><h2>${svg(I.tasks,18)} My tasks</h2><span class="td-tag">Connecting next</span></div><p>Your Notion tasks will show here, live: tick them done here and they update in Notion.</p></section>`;
-  return `<section class="td-card td-tasks" data-pop="tasks"><div class="td-h td-th"><div class="td-tl"><h2>${svg(I.tasks,18)} My tasks</h2>${syncLine()}</div>${expandBtn('tasks','My tasks')}</div>
+  return `<section class="td-card td-tasks" data-pop="tasks"><div class="td-h td-th"><div class="td-tl"><h2>${svg(I.tasks,18)} ${esc(whose())} tasks</h2>${syncLine()}</div>${expandBtn('tasks','tasks')}</div>
     ${tasksInner()}<button type="button" class="td-new">+ New task</button></section>`;
 }
 function callRow(c,big){const k=CALL_KIND[c.kind]||['ci',c.kind||'Call'];
@@ -97,7 +104,7 @@ function callsHTML(){
   if(!window.TTL_CALLS||!CALLS)return `<section class="td-card td-soon td-cal"><div class="td-h"><h2>${svg(I.cal,18)} Calls</h2><span class="td-tag">Connecting next</span></div><p>Today's calls from your calendar, with a full calendar for the next 7 days.</p></section>`;
   const D=days7(),on=k=>CALLS.filter(c=>istDay(c.start)===k),td=on(D[0].key),tm=on(D[1].key);
   return `<section class="td-card td-cal tc" data-pop="calls"><div class="tc-head"><div class="tc-date"><span>${D[0].long.split(',')[0].toUpperCase()}</span><b>${D[0].d}</b></div>
-      <div class="tc-acts"><span>${td.length} call${td.length===1?'':'s'}</span><button type="button" class="tc-open" data-pop="calls">${svg(I.cal,15)} Full calendar</button></div></div>
+      <div class="tc-acts"><span>${TEAM_ON()?esc(VIEW)+' · ':''}${td.length} call${td.length===1?'':'s'}</span><button type="button" class="tc-open" data-pop="calls">${svg(I.cal,15)} Full calendar</button></div></div>
     ${td.length?`<div class="tc-list">${td.map(c=>callRow(c)).join('')}<div class="tc-pad"></div></div>`:`<div class="tc-none">${CONFETTI}<b>No calls today</b><span>A clear day. Good time to catch up on reviews.</span></div>`}
     <div class="tc-foot"><span>${td.length>3?`${svg('<path d="M12 5v14M6 13l6 6 6-6"/>',12)} Scroll for ${td.length-3} more`:''}</span><span>Tomorrow: ${tm.length?tm.length+' call'+(tm.length===1?'':'s'):'no calls'}</span></div>
   </section>`;
@@ -109,20 +116,20 @@ function calendarInner(){
     <div class="tc-dl">${sc.length?sc.map(c=>callRow(c,true)).join(''):`<div class="tc-none">${CONFETTI}<b>No calls this day</b><span>A clear day. Good time to catch up on reviews.</span></div>`}</div>`;
 }
 function dashData(){
-  const pool=TEAM?CLIENTS:mine();
+  const pool=CLIENTS.filter(c=>c.coach===VIEW);
   const needs=pool.filter(c=>rk(c)<=2).sort((a,b)=>rk(a)-rk(b)||a.name.localeCompare(b.name));
   const tagged=TAGDEF.filter(t=>t.id!=='renew').map(t=>({t,people:pool.map(c=>({c,tag:tagsOf(c).find(x=>x.id===t.id)})).filter(x=>x.tag)})).filter(x=>x.people.length);
   return {needs,tagged};
 }
 const ini=c=>esc(c.name.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase());
-const person=c=>`<button type="button" class="td-name" data-open="${c.id}"><span class="td-ini">${ini(c)}</span>${esc(c.name)}${TEAM?`<em>${c.coach==='Shrutika'?'S':'H'}</em>`:''}</button>`;
+const person=c=>`<button type="button" class="td-name" data-open="${c.id}"><span class="td-ini">${ini(c)}</span>${esc(c.name)}</button>`;
 // Centre pop-up: one section opened large, clear of every edge of the screen.
 function popHTML(){
   if(!POP)return '';
   const {needs,tagged}=dashData();let title='',sub='',body='';
-  if(POP==='tasks'&&TASKS){title='My tasks';sub=syncLine();body=`<div class="td-tasks td-inpop">${tasksInner()}<button type="button" class="td-new">+ New task</button></div>`}
+  if(POP==='tasks'&&TASKS){title=esc(whose())+' tasks';sub=syncLine();body=`<div class="td-tasks td-inpop">${tasksInner()}<button type="button" class="td-new">+ New task</button></div>`}
   else if(POP==='calls'&&CALLS){title='Calls';sub='<span class="td-sub">Next 7 days</span>';body=calendarInner()}
-  else if(POP==='needs'){title=`Needs you today <em>${needs.length}</em>`;sub=`<span class="td-sub">Waiting on ${TEAM?'the team':'you'}. Tap a row to open the client.</span>`;
+  else if(POP==='needs'){title=`${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em>`;sub=`<span class="td-sub">Waiting on ${TEAM_ON()?esc(VIEW):'you'}. Tap a row to open the client.</span>`;
     body=needs.length?`<div class="td-plist">${needs.map(c=>`<button type="button" class="td-prow" data-open="${c.id}"><span class="td-ini">${ini(c)}</span><span class="td-pn"><b>${esc(c.name)}</b><span>Coach ${esc(c.coach)}${c.week?' · Week '+c.week:''}</span></span><span class="td-pst">${esc(c.comp)}</span>${c.sheet&&c.sheet.ciAction?`<span class="td-pst alt">${esc(c.sheet.ciAction)}</span>`:''}</button>`).join('')}</div>`:'<p class="td-empty td-pad">Nobody is waiting on you right now.</p>'}
   else if(POP==='watch'){title='Watch list';sub='<span class="td-sub">Clients the tags picked up, with the reason</span>';
     body=tagged.length?tagged.map(x=>`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-${x.t.tone}"></span><b>${esc(x.t.label)}</b><em>${x.people.length}</em></div><div class="td-plist">${x.people.map(({c,tag})=>`<button type="button" class="td-prow" data-open="${c.id}"><span class="td-ini">${ini(c)}</span><span class="td-pn"><b>${esc(c.name)}</b><span>${esc(tag.why||'')}</span></span></button>`).join('')}</div></div>`).join(''):'<p class="td-empty td-pad">No clients tagged right now.</p>'}
@@ -138,13 +145,14 @@ function renderDash(){
   <button type="button" class="td-back" data-go="home">${svg(I.back,14)}Home</button>
   <header class="td-head">
     <div class="td-hi"><div class="th-date">${today()}</div><h1>${greet()}, ${esc(WHO)}</h1></div>
-    <div class="seg td-seg" role="group" aria-label="Whose clients"><button type="button" data-team="0" aria-pressed="${!TEAM}">My day</button><button type="button" data-team="1" aria-pressed="${TEAM}">Team</button></div>
+    ${IS_OWNER&&team().length?`<div class="seg td-seg" role="group" aria-label="Whose day"><button type="button" data-team="0" aria-pressed="${!TEAM_ON()}">My day</button><button type="button" data-team="1" aria-pressed="${TEAM_ON()}">Team</button></div>`:''}
   </header>
+  ${TEAM_ON()?`<div class="td-team" role="group" aria-label="Team member"><span class="td-sub">Viewing</span>${team().map(n=>`<button type="button" class="td-coach" data-coach="${esc(n)}" aria-pressed="${n===VIEW}"><span class="td-ini">${esc(n[0])}</span>${esc(n)}<em>${CLIENTS.filter(c=>c.coach===n).length} clients</em></button>`).join('')}</div>`:''}
   ${tasksHTML()}
   <div class="td-row">
     ${callsHTML()}
-    <section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>Needs you today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
-      <p class="td-sub">Master reviews, calls and reviews waiting on ${TEAM?'the team':'you'}. Tap a name for details.</p>
+    <section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
+      <p class="td-sub">Master reviews, calls and reviews waiting on ${TEAM_ON()?esc(VIEW):'you'}. Tap a name for details.</p>
       <div class="td-names td-scroll">${needs.length?needs.map(person).join(''):'<p class="td-empty">Nobody is waiting on you right now.</p>'}</div></section>
   </div>
   <section class="td-watch" data-pop="watch"><div class="td-h"><h2>Watch list</h2><span class="td-wsub"><span class="td-sub">Clients the tags picked up</span>${expandBtn('watch','Watch list')}</span></div>
@@ -195,7 +203,8 @@ XS.close=function(){close0();if(location.hash==='#sheet')location.replace('#'+(F
 document.addEventListener('click',e=>{
   const g=e.target.closest('[data-go]');if(g&&!XOPEN){e.preventDefault();go(g.dataset.go);return}
   if(e.target.closest('#openSheet')&&location.hash!=='#sheet')history.pushState(null,'','#sheet');
-  if(!dash.hidden){const t=e.target.closest('[data-team]');if(t){TEAM=t.dataset.team==='1';renderDash();return}
+  if(!dash.hidden){const t=e.target.closest('[data-team]');if(t){VIEW=t.dataset.team==='1'?(team()[0]||WHO):WHO;TASKS=CALLS=null;TTAB='Today';renderDash();loadFeeds();return}
+    const co=e.target.closest('[data-coach]');if(co){VIEW=co.dataset.coach;TASKS=CALLS=null;TTAB='Today';renderDash();loadFeeds();return}
     const o=e.target.closest('.td-name,.td-prow');if(o){openP(o.dataset.open);return}}
   if(e.target.id==='thSwitch'||e.target.id==='whoSwitch'){e.stopImmediatePropagation();try{localStorage.setItem('ttl-who','')}catch(_){}location.replace(location.pathname)}
 },true);
