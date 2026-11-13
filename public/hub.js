@@ -55,6 +55,20 @@ const days7=()=>Array.from({length:7},(_,i)=>{const d=new Date(Date.now()+i*864e
 const CONFETTI='<svg width="120" height="78" viewBox="0 0 120 78" aria-hidden="true"><circle cx="60" cy="44" r="20" fill="#EDF0F9"/><path d="M52 52 60 30l8 22z" fill="#3F59A7"/><path d="M60 30c-2-6 3-10 7-8" fill="none" stroke="#3F59A7" stroke-width="2" stroke-linecap="round"/><rect x="22" y="18" width="7" height="3" rx="1.5" fill="#E0A100" transform="rotate(-30 25 19)"/><rect x="92" y="14" width="7" height="3" rx="1.5" fill="#E0507F" transform="rotate(25 95 15)"/><rect x="14" y="48" width="7" height="3" rx="1.5" fill="#2E9B48" transform="rotate(40 17 49)"/><rect x="100" y="46" width="7" height="3" rx="1.5" fill="#3F8FE0" transform="rotate(-20 103 47)"/><circle cx="40" cy="10" r="2.5" fill="#2E9B48"/><circle cx="82" cy="6" r="2.5" fill="#E5771F"/><circle cx="30" cy="66" r="2.5" fill="#3F59A7"/><circle cx="92" cy="70" r="2.5" fill="#E0A100"/></svg>';
 const X_IC='<path d="M6 6l12 12M18 6 6 18"/>',EXP_IC='<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>';
 const expandBtn=(k,label)=>`<button type="button" class="td-exp" data-pop="${k}" aria-label="Open ${label} larger">${svg(EXP_IC,15)}</button>`;
+// Test version only (the screen-changes branch link): sample tasks and calls so the Dashboard can be clicked through
+// before Notion and the calendar are connected. Never runs on the live portal.
+const SAMPLE=/^screen-changes--/.test(location.hostname);
+if(SAMPLE&&!window.TTL_TASKS){
+  const names=()=>mine().slice(0,8).map(c=>c.name),T=(i,what,status,due)=>({id:i,title:(names()[i%Math.max(names().length,1)]||'Client')+' – '+what,status,due});
+  let mem=null;
+  window.TTL_TASKS={list:async()=>mem||(mem=[T(0,'Send revised meal plan','In progress','Today'),T(1,'Record Loom for Plan of Action','Not started','Today'),T(2,'Review progress photos','Not started','Today'),
+    T(3,'Update Trainerize programme','Done','Today'),T(4,'Swap leg day exercises','Not started','Today'),T(5,'Check blood report','Not started','Today'),
+    T(6,'Prepare Accelerator pitch','Not started','Tomorrow'),T(7,'Refeed week plan','Not started','Tomorrow'),T(0,'Renewal call notes','Not started','Later This week'),T(1,'Ask for blood reports','Not started','Next week')].map((t,i)=>Object.assign(t,{id:i}))),
+    setDone:async()=>{}};
+  const at=(d,h,m,min)=>{const s=new Date();s.setDate(s.getDate()+d);s.setHours(h,m,0,0);return{start:s,end:new Date(s.getTime()+min*6e4)}},C=(d,h,m,min,kind,i)=>Object.assign(at(d,h,m,min),{kind,client:names()[i%Math.max(names().length,1)]||'Client'});
+  window.TTL_CALLS={list:async()=>[C(0,9,30,30,'Check-in call',0),C(0,11,0,45,'Master check-in',1),C(0,13,0,30,'Renewal call',2),C(0,16,0,30,'Check-in call',3),C(0,17,30,45,'Goal-setting call',4),
+    C(2,10,0,30,'Check-in call',5),C(2,15,0,45,'Master check-in',6),C(3,11,0,45,'Goal-setting call',7),C(4,9,0,30,'Check-in call',0),C(5,12,0,45,'Master check-in',1)]};
+}
 async function loadFeeds(){
   try{if(window.TTL_TASKS){TASKS=await TTL_TASKS.list();SYNCED=new Date()}}catch(_){TASKS=null}
   try{if(window.TTL_CALLS)CALLS=(await TTL_CALLS.list(new Date(),7)).map(c=>Object.assign({},c,{start:new Date(c.start),end:new Date(c.end)})).sort((a,b)=>a.start-b.start)}catch(_){CALLS=null}
@@ -70,7 +84,7 @@ function tasksInner(){
       <span class="td-tt"><b>${esc(taskTitle(t))}</b></span><span><span class="td-ts s-${ST_TASK[t.status]||'ns'}"><i></i>${esc(t.status)}</span></span><span class="td-td">${esc(t.due)}</span></div>`}).join('')
       :`<p class="td-empty td-pad">Nothing under ${esc(TTAB)}.</p>`}</div>`;
 }
-const syncLine=()=>`<span class="td-sync"><i></i>Synced with Notion${SYNCED?' at '+tFmt(SYNCED):''}</span>`;
+const syncLine=()=>`<span class="td-sync"><i></i>${SAMPLE?'Sample tasks for testing, not from Notion':'Synced with Notion'+(SYNCED?' at '+tFmt(SYNCED):'')}</span>`;
 function tasksHTML(){
   if(!window.TTL_TASKS||!TASKS)return `<section class="td-card td-soon"><div class="td-h"><h2>${svg(I.tasks,18)} My tasks</h2><span class="td-tag">Connecting next</span></div><p>Your Notion tasks will show here, live: tick them done here and they update in Notion.</p></section>`;
   return `<section class="td-card td-tasks" data-pop="tasks"><div class="td-h td-th"><div class="td-tl"><h2>${svg(I.tasks,18)} My tasks</h2>${syncLine()}</div>${expandBtn('tasks','My tasks')}</div>
