@@ -21,3 +21,6 @@ npm install
 cp .env.example .env   # fill in Supabase keys
 npm run dev
 ```
+
+## Test version
+The `screen-changes` branch is published by Netlify as a branch deploy (`screen-changes--<site>.netlify.app`). Design changes from the screens board go there first and move to `main` once Harsh approves. It uses the same database as the live portal. On that link only, the Dashboard shows sample tasks and calls until Notion and the calendar are connected.
