@@ -174,3 +174,14 @@ button.td-ltr{cursor:pointer}button.td-ltr:hover{background:var(--ground)}
 .td-ltr em{font-style:normal;font-size:12px;color:var(--label-2);margin-left:8px;white-space:nowrap}
 .td-ltc{font-size:14px;color:var(--label-2);font-weight:500}
 @media (max-width:520px){.td-ltr{grid-template-columns:minmax(0,1.3fr) minmax(0,1.2fr) auto;gap:8px;padding-inline:10px}.td-ltn .td-ini{display:none}.td-ltr em{display:block;margin:3px 0 0}}
+
+/* Dashboard on a wide screen: use the full width, sections side by side */
+.td-top{display:flex;flex-direction:column;gap:22px;min-width:0}
+.td-lad{margin:0}
+@media (min-width:1100px){
+  .td-wrap{max-width:none;padding-inline:max(32px,env(safe-area-inset-left,0px))}
+  .td-top{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+  .td-row{gap:18px}
+  .td-cal{flex:1 1 380px;max-width:560px}
+  .td-tags{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+}

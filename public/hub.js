@@ -164,8 +164,7 @@ function renderDash(){
     ${IS_OWNER&&team().length?`<div class="seg td-seg" role="group" aria-label="Whose day"><button type="button" data-team="0" aria-pressed="${!TEAM_ON()}">My day</button><button type="button" data-team="1" aria-pressed="${TEAM_ON()}">Team</button></div>`:''}
   </header>
   ${TEAM_ON()?`<div class="td-team" role="group" aria-label="Team member"><span class="td-sub">Viewing</span>${team().map(n=>`<button type="button" class="td-coach" data-coach="${esc(n)}" aria-pressed="${n===VIEW}"><span class="td-ini">${esc(n[0])}</span>${esc(n)}<em>${CLIENTS.filter(c=>c.coach===n).length} clients</em></button>`).join('')}</div>`:''}
-  ${tasksHTML()}
-  ${ladderHTML()}
+  <div class="td-top">${tasksHTML()}${ladderHTML()}</div>
   <div class="td-row">
     ${callsHTML()}
     <section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
