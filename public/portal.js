@@ -127,7 +127,7 @@ let TAGOPEN=null;
 /* exact labels + colours from the coaches' Numbers sheets (conditional formatting) */
 const SKEY=t=>String(t||'').toLowerCase().replace(/[^a-z]/g,'');
 const SHEET_ST={tbd:['TBD','#919191','#000'],skip:['Skip','#B41700','#000'],onlycalllink:['Only Call Link','#FFBE99','#000'],datadue:['Data Due','rgba(238,113,158,.9)','#000'],sameweekrepeat:['Same Week Repeat','rgba(255,252,152,.9)','#000'],noshow:['No Show','#B41700','#FEFFFE'],onhold:['On Hold','rgba(255,140,58,.9)','#000'],recheckin:['Recheck-in','rgba(152,239,234,.9)','#000'],audioreview:['💬 Audio Review','#56C1FE','#000'],callneeded:['📞 Call needed','#FF40FF','#000'],calllinksent:['📞 Call Link Sent','#D696F8','#000'],callbooked:['📞 Call Booked','#006B65','#FEFFFE'],mastercall:['📞 Master Call','#4E88DE','#000'],reviewneeded:['🔵 Review needed','rgba(136,204,255,.9)','#000'],markedclosed:['✅ Marked Closed','rgba(175,228,137,.9)','#000'],masterreview:['🔴 Master Review','#FFFFFF','#000'],masterform:['Master Form','rgba(199,87,226,.9)','#000']};
-const SHEET_ACT={ontrack:['✅ On Track','rgba(175,228,137,.9)','#000'],supportneeded:['🟡 Support Needed','#F2C230','#000'],mastersupport:['🟠 Master Support','#F08A24','#000'],commitmentweek:['🔴 Commitment Week','#E5342A','#000'],finalcall:['🚨 Final Call','#8E1200','#FEFFFE'],dailycheckins:['🟡 Daily Check-ins','rgba(255,252,152,.9)','#000'],mealpictures:['🟠 Meal Pictures','rgba(255,211,138,.9)','#000'],flagged:['🔴 Flagged','rgba(255,151,129,.9)','#000'],redalert:['🚨 Red Alert','#B41700','#FEFFFE'],keepaneye:['👀 Keep an eye','#F7A3E3','#000'],recheckin:['🔃 Recheckin','rgba(170,148,226,.9)','#000'],movingslow:['🐢 Moving Slow','#99E3D9','#000']};
+const SHEET_ACT={audioreview:['💬 Audio Review','#56C1FE','#000'],generalcall:['📞 General Call','#99E3D9','#000'],supportcall:['🟡 Support Call','#F2C230','#000'],accountabilitycall:['🟠 Accountability Call','#F08A24','#000'],ontrack:['✅ On Track','rgba(175,228,137,.9)','#000'],supportneeded:['🟡 Support Needed','#F2C230','#000'],mastersupport:['🟠 Master Support','#F08A24','#000'],commitmentweek:['🔴 Commitment Week','#E5342A','#000'],finalcall:['🚨 Final Call','#8E1200','#FEFFFE'],dailycheckins:['🟡 Daily Check-ins','rgba(255,252,152,.9)','#000'],mealpictures:['🟠 Meal Pictures','rgba(255,211,138,.9)','#000'],flagged:['🔴 Flagged','rgba(255,151,129,.9)','#000'],redalert:['🚨 Red Alert','#B41700','#FEFFFE'],keepaneye:['👀 Keep an eye','#F7A3E3','#000'],recheckin:['🔃 Recheckin','rgba(170,148,226,.9)','#000'],movingslow:['🐢 Moving Slow','#99E3D9','#000']};
 function sPill(t,kind,coach){const k=SKEY(t);let m=(kind==='act'?SHEET_ACT:SHEET_ST)[k];
   if(m&&kind==='act'&&k==='keepaneye'&&coach==='Harsh')m=[m[0],'#FF40FF','#000'];
   if(!m)m=[t,'var(--fill)','var(--label)'];
@@ -167,7 +167,7 @@ function openRules(){
 /* ---------- grid ---------- */
 let F={view:'all',coach:'all',q:'',tag:null,st:null,act:null,exp:false};let FM='filter';
 const ST_ORDER=['masterreview','mastercall','callneeded','reviewneeded','audioreview','calllinksent','callbooked','datadue','sameweekrepeat','onlycalllink','recheckin','noshow','skip','markedclosed','onhold','tbd'];
-const ACT_ORDER=['ontrack','keepaneye','supportneeded','mastersupport','commitmentweek','finalcall','dailycheckins','mealpictures','movingslow','recheckin','flagged','redalert'];
+const ACT_ORDER=['audioreview','keepaneye','generalcall','supportcall','accountabilitycall','commitmentweek','finalcall','ontrack','supportneeded','mastersupport','dailycheckins','mealpictures','movingslow','recheckin','flagged','redalert'];
 function renderCoachSeg(){const n=k=>CLIENTS.filter(c=>k==='all'||c.coach===k).length;
   $('#coachSeg').innerHTML=[['all','All'],['Harsh','Harsh'],['Shrutika','Shrutika']].map(([k,l])=>`<button data-pc="${k}" aria-pressed="${F.coach===k}">${l}<em>${n(k)}</em></button>`).join('')}
 function render(){
@@ -191,7 +191,7 @@ function render(){
   $('#grid').innerHTML=list.length?list.map(c=>{
     const g=GRP(c);let head='';if(g[0]!==lastG){lastG=g[0];head=`<div class="gh"><span>${g[0]}</span><em>${list.filter(x=>GRP(x)[0]===g[0]).length}</em></div>`}
     const lv=LEVEL[c.comp]||'none';
-    const sig=[];const ca=c.sheet.ciAction;if(ca)sig.push({label:ca,tone:/red alert|flagged|master support|commitment|final call/i.test(ca)?'red':/on track/i.test(ca)?'green':'amber'});if(needsReply(c))sig.push({label:'Needs reply',tone:'red'});tagsOf(c).filter(t=>t.id!=='renew').forEach(t=>sig.push(t));
+    const sig=[];const ca=c.sheet.ciAction;if(ca)sig.push({label:ca,tone:/red alert|flagged|master support|accountability|commitment|final call/i.test(ca)?'red':/on track|audio review/i.test(ca)?'green':'amber'});if(needsReply(c))sig.push({label:'Needs reply',tone:'red'});tagsOf(c).filter(t=>t.id!=='renew').forEach(t=>sig.push(t));
     const more=sig.length-(ca?1:0);
     return head+`<button class="tile tl" data-id="${c.id}">
       <div class="tl-top"><strong class="tl-name">${esc(c.name)}${c.demo?' <span class="demo">Demo</span>':''}</strong><span class="tl-coach">${c.coach==='Shrutika'?'S':'H'}</span></div>
@@ -295,10 +295,11 @@ function nutCheck(){
   $('#nutCheck').innerHTML=`Macros add up to <b>${t.toLocaleString('en-IN')} kcal</b>${Math.abs(diff)>50?` · ${Math.abs(diff)} kcal ${diff>0?'over':'under'} the calorie target`:' · matches the calorie target'}`;
 }
 /* Check-in ladder: the business SOP. Levels are set by coaches only; the portal keeps the history and prompts. */
-const LADDER=['ontrack','keepaneye','supportneeded','mastersupport','commitmentweek','finalcall'];
-const LNAME=['On Track','Keep an Eye','Support Needed','Master Support','Commitment Week','Final Call'];
-const LDO=['','Audio review','Call with the coach','Call with both coaches','Commitment week agreed on a call','Final call with the head coach'];
-const lvOf=t=>LADDER.indexOf(SKEY(t));
+const LADDER=['audioreview','keepaneye','generalcall','supportcall','accountabilitycall','commitmentweek','finalcall'];
+const LNAME=['Audio Review','Keep an Eye','General Call','Support Call','Accountability Call','Commitment Week','Final Call'];
+const LDO=['Check-in reviewed, audio sent','Audio sent, still watching','A light follow-up call','First call for not performing: understanding and empathetic','Second call: straight and firm','Commitment week given','Final call'];
+const L_ESC=3,L_HOT=4,L_OLD={ontrack:0,supportneeded:3,mastersupport:4}; /* escalation starts at Support Call; the head coach list starts at Accountability Call */
+const lvOf=t=>{const k=SKEY(t);return k in L_OLD?L_OLD[k]:LADDER.indexOf(k)};
 function ladderOf(c){
   const all=window.TTL_STORE&&TTL_STORE.weekly?TTL_STORE.weekly(c.id):[];
   const d=new Date(new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'})+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);const thisMon=d.toISOString().slice(0,10);
@@ -307,9 +308,9 @@ function ladderOf(c){
   const cur=all.find(w=>w.week_of===thisMon);
   const now=lvOf(c.sheet.ciAction),nowPeak=now;
   const seq=past.map(w=>w.lv).concat([nowPeak]);
-  let times=0;seq.forEach((v,i)=>{if(v>=2&&(i===0||seq[i-1]<2))times++});
-  const peak=Math.max(-1,...seq),above=seq.filter(v=>v>=2).length;
-  let last=null;if(now<2)for(let i=past.length-1;i>=0;i--)if(past[i].lv>=2){last={label:past[i].label,lv:past[i].lv,ago:past.length-i};break}
+  let times=0;seq.forEach((v,i)=>{if(v>=L_ESC&&(i===0||seq[i-1]<L_ESC))times++});
+  const peak=Math.max(-1,...seq),above=seq.filter(v=>v>=L_ESC).length;
+  let last=null;if(now<L_ESC)for(let i=past.length-1;i>=0;i--)if(past[i].lv>=L_ESC){last={label:past[i].label,lv:past[i].lv,ago:past.length-i};break}
   const prev=past[past.length-1]||null;
   return {past,now,nowPeak,times,peak,above,last,prev,on:!!(window.TTL_STORE&&TTL_STORE.weeklyOn&&TTL_STORE.weeklyOn())};
 }
@@ -319,13 +320,13 @@ function ladderBlock(c){const L=ladderOf(c),now=L.now;
   const node=(lv,label,cap)=>`<div class="ld-n l${lv<0?'x':lv}"><span>${esc(cap)}</span><b>${esc(label||'Not set')}</b></div>`;
   const steps=LNAME.map((n,i)=>`<li class="${i===now?'on':''}${i<now?' done':''} l${i}"><i></i><span>${n}</span></li>`).join('');
   let hint='';
-  if(now>=2)hint=`<p class="ld-hint"><b>${LNAME[now]}:</b> ${LDO[now]}. This level is always a call, never only an audio.</p>`;
-  if(L.prev&&L.prev.lv>=2&&now===L.prev.lv&&now<5)hint+=`<p class="ld-hint warn"><b>Last week was also ${LNAME[now]}.</b> If nothing has changed, the next step is ${LNAME[now+1]}. You decide.</p>`;
+  if(now>=0)hint=`<p class="ld-hint"><b>${LNAME[now]}:</b> ${LDO[now]}.</p>`;
+  if(L.prev&&L.prev.lv>=L_ESC&&now===L.prev.lv&&now<6)hint+=`<p class="ld-hint warn"><b>Last week was also ${LNAME[now]}.</b> If nothing has changed, the next step is ${LNAME[now+1]}. You decide.</p>`;
   const tl=L.past.length?`<div class="ld-tl">${L.past.map(w=>node(w.lv,w.label,w.wk?'Wk '+w.wk:fmtD(new Date(w.of)))).join('<em>→</em>')}<em>→</em>${node(L.nowPeak,L.nowPeak>=0?LNAME[L.nowPeak]:(c.sheet.ciAction||''),'Now')}</div>`
     :`<p class="foot">${L.on?'History starts building from the next “Start a new week”. Every week is then kept here for good, even after the client is back On Track.':'History is not switched on yet (one small database step is pending).'}</p>`;
-  return `<section class="block ladder"><div class="ng-h"><h3>Check-in ladder</h3><span class="sdate">Set by the coach on the Sheet</span></div>
+  return `<section class="block ladder"><div class="ng-h"><h3>Check-in action</h3><span class="sdate">Set by the coach on the Sheet</span></div>
     <ol class="ld-steps">${steps}</ol>${c.sheet.support?`<p class="ld-sup">Extra support: <b>${esc(c.sheet.support)}</b></p>`:''}${hint}
-    ${L.past.length?`<div class="nums n3 ld-nums"><div class="num"><small>Highest level this phase</small><b>${L.peak>=0?LNAME[L.peak]:'—'}</b></div><div class="num"><small>Times escalated</small><b>${L.times}</b></div><div class="num"><small>Weeks at Support Needed or above</small><b>${L.above}</b></div></div>`:''}
+    ${L.past.length?`<div class="nums n3 ld-nums"><div class="num"><small>Highest level this phase</small><b>${L.peak>=0?LNAME[L.peak]:'—'}</b></div><div class="num"><small>Times escalated</small><b>${L.times}</b></div><div class="num"><small>Weeks at Support Call or above</small><b>${L.above}</b></div></div>`:''}
     <h4 class="ld-h4">Week by week</h4>${tl}</section>`}
 function sheetWeek(c){const r=c.sheet,yn=v=>v==='True'?'Yes':v==='False'?'No':(v||'—');
   return `<section class="block"><div class="ng-h"><h3>This week</h3><span class="sdate">${c.coach}'s check-in sheet</span></div>
