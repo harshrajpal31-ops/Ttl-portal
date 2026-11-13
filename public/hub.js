@@ -155,15 +155,13 @@ function popHTML(){
 }
 /* Check-in status: where this week's check-ins stand, straight from the Sheet. */
 function checkinHTML(){
-  const pool=CLIENTS.filter(c=>c.coach===VIEW&&c.status==='Active'),k=c=>SKEY(c.comp);
-  const out=pool.filter(c=>['skip','onhold','noshow'].includes(k(c))).length,all=pool.length-out;
-  const closed=pool.filter(c=>k(c)==='markedclosed').length,review=pool.filter(c=>['reviewneeded','masterreview'].includes(k(c))).length,rest=Math.max(0,all-closed-review);
+  // Everyone on the coach's sheet counts, except clients marked Skip this week.
+  const pool=CLIENTS.filter(c=>c.coach===VIEW&&SKEY(c.comp)!=='skip'),all=pool.length,closed=pool.filter(c=>SKEY(c.comp)==='markedclosed').length;
   const pct=all?Math.round(closed/all*100):0;
   return `<section class="td-card td-ci"><div class="td-h"><h2>Check-in status</h2><span class="td-live"><i></i>Live now</span></div>
-    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s":'Your'} sheet this week${out?` · ${out} skipping or on hold`:''}</p>
-    <div class="ci-big"><b>${closed}</b><span>closed out of ${all}</span></div>
-    <div class="ci-bar" role="img" aria-label="${pct}% closed"><i style="width:${pct}%"></i></div>
-    <div class="ci-two"><div class="ci-m rv"><b>${review}</b><span>Review needed</span></div><div class="ci-m rm"><b>${rest}</b><span>Remaining</span></div></div></section>`;
+    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s":'Your'} sheet this week</p>
+    <div class="ci-big"><b>${closed}</b><span>closed out of ${all}</span><em>${pct}%</em></div>
+    <div class="ci-bar" role="img" aria-label="${pct}% closed"><i style="width:${pct}%"></i></div></section>`;
 }
 function needsHTML(){const {needs}=dashData();
   return `<section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
@@ -179,7 +177,7 @@ function watchHTML(){const {tagged}=dashData();
 const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
 const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
 const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['calls',4,5],['needs',8,5],['watch',12,4]];
-const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,4],calls:[3,4],needs:[3,3],watch:[4,3]};
+const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],calls:[3,4],needs:[3,3],watch:[4,3]};
 const W_ROW=56,W_GAP=16,LKEY='ttl-dash-layout-v1-'+WHO;
 const defLay=()=>W_DEF.map(([id,w,h])=>({id,w,h}));
 function loadLay(){try{const s=JSON.parse(localStorage.getItem(LKEY)||'null');if(Array.isArray(s)){const ok=s.filter(x=>W_HTML[x.id]&&x.w>0&&x.h>0);defLay().forEach(d=>{if(!ok.find(x=>x.id===d.id))ok.push(d)});return ok}}catch(_){}return defLay()}
