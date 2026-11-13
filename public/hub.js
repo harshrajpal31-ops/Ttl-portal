@@ -120,7 +120,7 @@ function dashData(){
   const needs=pool.filter(c=>rk(c)<=2).sort((a,b)=>rk(a)-rk(b)||a.name.localeCompare(b.name));
   const tagged=TAGDEF.filter(t=>t.id!=='renew').map(t=>({t,people:pool.map(c=>({c,tag:tagsOf(c).find(x=>x.id===t.id)})).filter(x=>x.tag)})).filter(x=>x.people.length);
   // Head coach only: who is at Accountability Call (Master Support for other coaches) or above now, and who was there earlier in this phase.
-  const lpool=IS_OWNER?(TEAM_ON()?pool:CLIENTS):[];
+  const lpool=IS_OWNER&&!TEAM_ON()?CLIENTS:pool; // head coach sees everyone; every other coach sees only their own clients
   const esc2=lpool.map(c=>({c,L:ladderOf(c)}));
   const hot=esc2.filter(x=>x.L.now>=L_HOT).sort((a,b)=>b.L.now-a.L.now||a.c.name.localeCompare(b.c.name));
   const was=esc2.filter(x=>x.L.now<L_HOT&&x.L.peak>=L_HOT).sort((a,b)=>a.c.name.localeCompare(b.c.name));
@@ -129,9 +129,9 @@ function dashData(){
 const ladRow=(x,past)=>`<button type="button" class="td-prow" data-open="${x.c.id}"><span class="td-ini">${ini(x.c)}</span><span class="td-pn"><b>${esc(x.c.name)}</b><span>Coach ${esc(x.c.coach)}${x.c.week?' · Week '+x.c.week:''}${x.L.times>1?' · escalated '+x.L.times+' times':''}</span></span><span class="td-pst l${past?x.L.peak:x.L.now}">${past?'Was '+LN(x.c)[x.L.peak]:LN(x.c)[x.L.now]}</span>${past&&x.L.now>=0?`<span class="td-pst alt">Now ${LN(x.c)[x.L.now]}</span>`:''}</button>`;
 const ladTable=(rows,past)=>`<div class="td-lt${past?' past':''}" role="table"><div class="td-ltr td-lth" role="row"><span role="columnheader">Name</span><span role="columnheader">Action</span><span role="columnheader">Coach</span></div>
   ${rows.map(x=>`<button type="button" class="td-ltr" role="row" data-open="${x.c.id}"><span class="td-ltn" role="cell"><span class="td-ini">${ini(x.c)}</span><b>${esc(x.c.name)}</b></span><span role="cell"><i class="td-lv l${past?x.L.peak:x.L.now}">${past?'Was '+LN(x.c)[x.L.peak]:LN(x.c)[x.L.now]}</i>${past&&x.L.now>=0?`<em>Now ${LN(x.c)[x.L.now]}</em>`:''}</span><span class="td-ltc" role="cell">${esc(x.c.coach)}</span></button>`).join('')}</div>`;
-function ladderHTML(){if(!IS_OWNER)return '';const {hot,was}=dashData();
+function ladderHTML(){const {hot,was}=dashData();
   return `<section class="td-card td-lad" data-pop="ladder"><div class="td-h"><h2>Escalations <em>${hot.length}</em></h2>${expandBtn('ladder','Escalations')}</div>
-    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s clients":'All clients'} at Accountability Call (Master Support for other coaches) or above. Tap a row for the history.</p>
+    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s clients":IS_OWNER?'All clients':'Your clients'} at Accountability Call (Master Support for other coaches) or above. Tap a row for the history.</p>
     ${hot.length?`<div class="td-scroll td-ltwrap">${ladTable(hot)}</div>`:'<p class="td-empty">Nobody is at this level right now.</p>'}
     ${was.length?`<p class="td-sub td-was">Earlier this phase: ${was.length} client${was.length===1?'':'s'} reached this level and came back down. Expand to see them.</p>`:''}</section>`}
 const ini=c=>esc(c.name.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase());
