@@ -303,9 +303,9 @@ function ladderOf(c){
   const all=window.TTL_STORE&&TTL_STORE.weekly?TTL_STORE.weekly(c.id):[];
   const d=new Date(new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'})+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);const thisMon=d.toISOString().slice(0,10);
   const from=c.start?new Date(Date.parse(c.start)-6*864e5).toISOString().slice(0,10):'';
-  const past=all.filter(w=>w.week_of<thisMon&&w.week_of>=from).map(w=>{const lv=Math.max(lvOf(w.peak),lvOf(w.act));return {wk:w.wk,of:w.week_of,lv,label:lv>=0?LNAME[lv]:(w.act||''),st:w.st||'',sup:w.sup||''}});
+  const past=all.filter(w=>w.week_of<thisMon&&w.week_of>=from).map(w=>{const lv=lvOf(w.act||w.peak);return {wk:w.wk,of:w.week_of,lv,label:lv>=0?LNAME[lv]:(w.act||''),st:w.st||'',sup:w.sup||''}});
   const cur=all.find(w=>w.week_of===thisMon);
-  const now=lvOf(c.sheet.ciAction),nowPeak=Math.max(now,cur?lvOf(cur.peak):-1);
+  const now=lvOf(c.sheet.ciAction),nowPeak=now;
   const seq=past.map(w=>w.lv).concat([nowPeak]);
   let times=0;seq.forEach((v,i)=>{if(v>=2&&(i===0||seq[i-1]<2))times++});
   const peak=Math.max(-1,...seq),above=seq.filter(v=>v>=2).length;
@@ -331,8 +331,9 @@ function sheetWeek(c){const r=c.sheet,yn=v=>v==='True'?'Yes':v==='False'?'No':(v
   return `<section class="block"><div class="ng-h"><h3>This week</h3><span class="sdate">${c.coach}'s check-in sheet</span></div>
     <div class="ckcore c4"><div><small>Check-in status</small><b>${sPill(c.comp,'st')}</b></div><div><small>App check-in</small><b>${yn(r.appCheckin)}</b></div><div><small>Check-in form</small><b>${yn(r.formIn)}</b></div><div><small>Reminder</small><b>${esc(r.reminders||'—')}</b></div></div>
     ${r.ciAction||r.ciNotes||r.programme?`<dl class="kv">${r.ciAction?`<dt>Action</dt><dd>${esc(r.ciAction)}</dd>`:''}${r.support?`<dt>Extra support</dt><dd>${esc(r.support)}</dd>`:''}${r.ciNotes?`<dt>Note</dt><dd>${esc(r.ciNotes)}</dd>`:''}${r.programme?`<dt>Workout programme</dt><dd>${esc(r.programme)}</dd>`:''}</dl>`:''}</section>`}
+function wkActPill(c,n){const L=ladderOf(c);const a=n===c.week?c.sheet.ciAction:((L.past.find(w=>w.wk===n)||{}).label||'');return a&&SKEY(a)!=='tbd'?' '+sPill(a,'act',c.coach):''}
 function sheetNotes(c){const wk=c.notes.map((n,i)=>({n,i})).filter(x=>x.n).reverse();
-  return `<section class="block"><div class="ng-h"><h3>Weekly coach notes</h3><span class="sdate">Progress sheet · ${wk.length} of 12 weeks</span></div>${wk.length?`<div class="timeline">${wk.map(({n,i})=>`<div class="note"><span class="wn">Week ${i+1}</span><p>${esc(n)}</p></div>`).join('')}</div>`:'<p class="foot">No weekly notes on the sheet yet.</p>'}</section>`}
+  return `<section class="block"><div class="ng-h"><h3>Weekly coach notes</h3><span class="sdate">Progress sheet · ${wk.length} of 12 weeks</span></div>${wk.length?`<div class="timeline">${wk.map(({n,i})=>`<div class="note"><span class="wn">Week ${i+1}${wkActPill(c,i+1)}</span><p>${esc(n)}</p></div>`).join('')}</div>`:'<p class="foot">No weekly notes on the sheet yet.</p>'}</section>`}
 function dots(n,max=5){return `<span class="dots">${Array.from({length:max},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')}</span>`}
 const CHEV='<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
 const phLabel=p=>`Phase ${p.n} · ${p.type}`;

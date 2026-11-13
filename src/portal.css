@@ -551,3 +551,4 @@ button.fi{cursor:pointer}button.fi:hover{background:var(--fill-2)}
 .ld-n span{font-size:11px;color:var(--label-2)}.ld-n b{font-size:13px;font-weight:600}
 .ld-n.l0{border-color:var(--l0)}.ld-n.l1{border-color:var(--l1)}.ld-n.l2{border-color:var(--l2)}.ld-n.l3{border-color:var(--l3)}.ld-n.l4{border-color:var(--l4)}.ld-n.l5{border-color:var(--l5)}
 @media (max-width:480px){.ld-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 6px}}
+.note .wn .spill{margin-top:5px;width:max-content}
