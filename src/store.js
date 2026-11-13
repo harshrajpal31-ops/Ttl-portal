@@ -243,7 +243,8 @@ export function createStore(who) {
   function weekRow(id, s, weekOf) {
     const list = (S.weekly[id] ||= []);
     const old = list.find(x => x.week_of === weekOf);
-    const act = word(s.act) === 'TBD' ? '' : word(s.act);
+    const live = word(s.act) === 'TBD' ? '' : word(s.act);
+    const act = live || (old ? old.act : ''); // a row already reset keeps the action it closed with
     const row = { client_id: id, week_of: weekOf, wk: wkNo(s.start, weekOf), act, sup: word(s.sup) === 'None' ? '' : word(s.sup),
       st: old && word(s.st) === 'TBD' ? old.st : word(s.st), // a row already reset keeps the status it closed with
       peak: old && lv(old.peak) > lv(act) ? old.peak : act, coach: S.rows[id]?.client.coach || '', saved_by: who, saved_at: new Date().toISOString() };
