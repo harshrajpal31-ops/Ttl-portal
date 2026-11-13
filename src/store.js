@@ -284,6 +284,13 @@ export function createStore(who) {
     });
   }
 
+  // New Week: comments on the weekly Check-in columns go with the week.
+  function clearComments(ids, fields) {
+    const jobs = [];
+    for (const id of ids) for (const f of fields) if ((S.comments[id] || {})[f]) jobs.push(setComment(id, f, ''));
+    return Promise.all(jobs);
+  }
+
   async function writeHist(id, s, name) {
     const patch = { rs: s.rs || '', start: String(s.start ?? ''), end: String(s.end ?? '') };
     if (s.xn) patch.x = Array.from({ length: 16 }, (_, i) => s.xn[i] || '');
@@ -369,6 +376,7 @@ export function createStore(who) {
     closeWeek,
     comment: (id, f) => (S.comments[id] || {})[f] || null,
     setComment,
+    clearComments,
     addClient,
     // Stand-in for the Sheet (window.XS) until step 4: only the calorie sync from the profile uses it.
     sheetApply(items) {
