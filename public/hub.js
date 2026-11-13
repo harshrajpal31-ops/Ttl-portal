@@ -153,44 +153,96 @@ function popHTML(){
   return `<div class="td-scrim" data-popclose></div><div class="td-pop${POPNEW?' in':''}" role="dialog" aria-modal="true" aria-label="${title.replace(/<[^>]+>/g,'')}">
     <div class="td-poph"><div><h2>${title}</h2>${sub}</div><button type="button" class="tc-x" data-popclose aria-label="Close">${svg(X_IC,13)}</button></div><div class="td-popb">${body}</div></div>`;
 }
+/* Check-in status: where this week's check-ins stand, straight from the Sheet. */
+function checkinHTML(){
+  const pool=CLIENTS.filter(c=>c.coach===VIEW&&c.status==='Active'),k=c=>SKEY(c.comp);
+  const out=pool.filter(c=>['skip','onhold','noshow'].includes(k(c))).length,all=pool.length-out;
+  const closed=pool.filter(c=>k(c)==='markedclosed').length,review=pool.filter(c=>['reviewneeded','masterreview'].includes(k(c))).length,rest=Math.max(0,all-closed-review);
+  const pct=all?Math.round(closed/all*100):0;
+  return `<section class="td-card td-ci"><div class="td-h"><h2>Check-in status</h2><span class="td-live"><i></i>Live now</span></div>
+    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s":'Your'} sheet this week${out?` · ${out} skipping or on hold`:''}</p>
+    <div class="ci-big"><b>${closed}</b><span>closed out of ${all}</span></div>
+    <div class="ci-bar" role="img" aria-label="${pct}% closed"><i style="width:${pct}%"></i></div>
+    <div class="ci-two"><div class="ci-m rv"><b>${review}</b><span>Review needed</span></div><div class="ci-m rm"><b>${rest}</b><span>Remaining</span></div></div></section>`;
+}
+function needsHTML(){const {needs}=dashData();
+  return `<section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
+      <p class="td-sub">Master reviews, calls and reviews waiting on ${TEAM_ON()?esc(VIEW):'you'}. Tap a name for details.</p>
+      <div class="td-names td-scroll">${needs.length?needs.map(person).join(''):'<p class="td-empty">Nobody is waiting on you right now.</p>'}</div></section>`}
+function watchHTML(){const {tagged}=dashData();
+  return `<section class="td-watch" data-pop="watch"><div class="td-h"><h2>Watch list</h2><span class="td-wsub"><span class="td-sub">Clients the tags picked up</span>${expandBtn('watch','Watch list')}</span></div>
+    ${tagged.length?`<div class="td-tags">${tagged.map(x=>`<div class="td-card td-tg"><div class="td-tgh"><span class="td-dot t-${x.t.tone}"></span><b>${esc(x.t.label)}</b><em>${x.people.length}</em></div><div class="td-names td-scroll">${x.people.map(x=>person(x.c)).join('')}</div></div>`).join('')}</div>`
+      :`<div class="td-card"><p class="td-empty">No clients tagged right now. Silent, Plateau, Regaining and the other tags fill in once Trainerize weights and weekly check-ins come into the portal.</p></div>`}
+  </section>`}
+
+/* ---------- Widgets: a 12-column grid each coach can rearrange and resize (wide screens). Saved on this device, per coach. ---------- */
+const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
+const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
+const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['calls',4,5],['needs',8,5],['watch',12,4]];
+const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,4],calls:[3,4],needs:[3,3],watch:[4,3]};
+const W_ROW=56,W_GAP=16,LKEY='ttl-dash-layout-v1-'+WHO;
+const defLay=()=>W_DEF.map(([id,w,h])=>({id,w,h}));
+function loadLay(){try{const s=JSON.parse(localStorage.getItem(LKEY)||'null');if(Array.isArray(s)){const ok=s.filter(x=>W_HTML[x.id]&&x.w>0&&x.h>0);defLay().forEach(d=>{if(!ok.find(x=>x.id===d.id))ok.push(d)});return ok}}catch(_){}return defLay()}
+const saveLay=()=>{try{localStorage.setItem(LKEY,JSON.stringify(LAY))}catch(_){}};
+let LAY=loadLay(),EDITL=false,DRAGW=null;
+const GRIP='<path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/>';
+// Moves the others out of the way smoothly: measure, change, then animate from the old place to the new one.
+function flip(grid,change,skip){const els=[...grid.children],a=new Map(els.map(el=>[el,el.getBoundingClientRect()]));change();
+  els.forEach(el=>{if(el===skip)return;const o=a.get(el),b=el.getBoundingClientRect(),dx=o.left-b.left,dy=o.top-b.top;if(dx||dy)el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:280,easing:'cubic-bezier(.2,.8,.2,1)'})})}
 function renderDash(){
-  if(dash.hidden)return;
+  if(dash.hidden||DRAGW)return;
   const keep=[...dash.querySelectorAll('[data-keep]')].map(e=>[e.dataset.keep,e.scrollTop]);
-  const {needs,tagged}=dashData();
   dash.innerHTML=`<div class="td-wrap">
   <button type="button" class="td-back" data-go="home">${svg(I.back,14)}Home</button>
   <header class="td-head">
     <div class="td-hi"><div class="th-date">${today()}</div><h1>${greet()}, ${esc(WHO)}</h1></div>
-    ${IS_OWNER&&team().length?`<div class="seg td-seg" role="group" aria-label="Whose day"><button type="button" data-team="0" aria-pressed="${!TEAM_ON()}">My day</button><button type="button" data-team="1" aria-pressed="${TEAM_ON()}">Team</button></div>`:''}
+    <div class="td-tools">${EDITL?'<button type="button" class="td-edit ghost" data-layreset>Reset layout</button>':''}<button type="button" class="td-edit${EDITL?' on':''}" data-layedit>${EDITL?'Done':svg(GRIP,15)+'Edit layout'}</button>
+    ${IS_OWNER&&team().length?`<div class="seg td-seg" role="group" aria-label="Whose day"><button type="button" data-team="0" aria-pressed="${!TEAM_ON()}">My day</button><button type="button" data-team="1" aria-pressed="${TEAM_ON()}">Team</button></div>`:''}</div>
   </header>
   ${TEAM_ON()?`<div class="td-team" role="group" aria-label="Team member"><span class="td-sub">Viewing</span>${team().map(n=>`<button type="button" class="td-coach" data-coach="${esc(n)}" aria-pressed="${n===VIEW}"><span class="td-ini">${esc(n[0])}</span>${esc(n)}<em>${CLIENTS.filter(c=>c.coach===n).length} clients</em></button>`).join('')}</div>`:''}
-  <div class="td-top">${tasksHTML()}${ladderHTML()}</div>
-  <div class="td-row">
-    ${callsHTML()}
-    <section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
-      <p class="td-sub">Master reviews, calls and reviews waiting on ${TEAM_ON()?esc(VIEW):'you'}. Tap a name for details.</p>
-      <div class="td-names td-scroll">${needs.length?needs.map(person).join(''):'<p class="td-empty">Nobody is waiting on you right now.</p>'}</div></section>
-  </div>
-  <section class="td-watch" data-pop="watch"><div class="td-h"><h2>Watch list</h2><span class="td-wsub"><span class="td-sub">Clients the tags picked up</span>${expandBtn('watch','Watch list')}</span></div>
-    ${tagged.length?`<div class="td-tags">${tagged.map(x=>`<div class="td-card td-tg"><div class="td-tgh"><span class="td-dot t-${x.t.tone}"></span><b>${esc(x.t.label)}</b><em>${x.people.length}</em></div><div class="td-names td-scroll">${x.people.map(x=>person(x.c)).join('')}</div></div>`).join('')}</div>`
-      :`<div class="td-card"><p class="td-empty">No clients tagged right now. Silent, Plateau, Regaining and the other tags fill in once Trainerize weights and weekly check-ins come into the portal.</p></div>`}
-  </section>
+  ${EDITL?'<p class="td-edithint">Drag a section to move it. Drag its bottom-right corner to resize it. The others make room.</p>':''}
+  <div class="td-grid${EDITL?' edit':''}">${LAY.map(w=>`<div class="tw" data-w="${w.id}" style="--w:${w.w};--h:${w.h}">${W_HTML[w.id]()}${EDITL?`<div class="tw-veil"><span class="tw-grip">${svg(GRIP,16)}${W_NAME[w.id]}</span></div><span class="tw-size" aria-hidden="true"></span>`:''}</div>`).join('')}</div>
 </div>${popHTML()}`;
   POPNEW=false;
-  dash.querySelectorAll('.td-tlist,.tc-list,.td-popb').forEach((e,i)=>{e.dataset.keep=e.className+i});
+  dash.querySelectorAll('.td-tlist,.tc-list,.td-popb,.tw>section,.td-ltwrap').forEach((e,i)=>{e.dataset.keep=e.className+i});
   keep.forEach(([k,t])=>{const e=dash.querySelector(`[data-keep="${k}"]`);if(e)e.scrollTop=t});
   document.documentElement.style.overflow=POP?'hidden':'';
 }
+dash.addEventListener('pointerdown',e=>{
+  if(!EDITL||e.button>0)return;const tw=e.target.closest('.tw'),grid=dash.querySelector('.td-grid');if(!tw||!grid)return;e.preventDefault();
+  const id=tw.dataset.w,item=LAY.find(x=>x.id===id),r=tw.getBoundingClientRect(),sx=e.clientX,sy=e.clientY,sizing=!!e.target.closest('.tw-size');
+  DRAGW={id};document.body.classList.add('tw-busy');
+  let ghost=null,last=null;
+  if(!sizing){ghost=tw.cloneNode(true);ghost.classList.add('tw-ghost');Object.assign(ghost.style,{width:r.width+'px',height:r.height+'px',left:r.left+'px',top:r.top+'px'});dash.appendChild(ghost);tw.classList.add('drag')}
+  else tw.classList.add('sizing');
+  const move=ev=>{
+    if(sizing){const g=grid.getBoundingClientRect(),col=(g.width+W_GAP)/12,mn=W_MIN[id]||[2,2];
+      const w=Math.max(mn[0],Math.min(12,Math.round((ev.clientX-r.left+W_GAP)/col))),h=Math.max(mn[1],Math.min(16,Math.round((ev.clientY-r.top+W_GAP)/(W_ROW+W_GAP))));
+      if(w!==item.w||h!==item.h)flip(grid,()=>{item.w=w;item.h=h;tw.style.setProperty('--w',w);tw.style.setProperty('--h',h)},tw);return}
+    ghost.style.transform=`translate(${ev.clientX-sx}px,${ev.clientY-sy}px) scale(1.02)`;
+    const over=document.elementsFromPoint(ev.clientX,ev.clientY).map(x=>x.closest&&x.closest('.td-grid>.tw')).find(x=>x&&x!==tw);
+    if(!over){last=null;return}if(over===last)return;last=over;
+    const from=LAY.indexOf(item),to=LAY.findIndex(x=>x.id===over.dataset.w);if(to<0)return;
+    flip(grid,()=>{LAY.splice(from,1);LAY.splice(to,0,item);grid.insertBefore(tw,from<to?over.nextSibling:over)},null);
+  };
+  const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);document.body.classList.remove('tw-busy');saveLay();
+    const done=()=>{if(ghost)ghost.remove();tw.classList.remove('drag','sizing');DRAGW=null};
+    if(ghost){const b=tw.getBoundingClientRect();const an=ghost.animate([{transform:ghost.style.transform||'none'},{transform:`translate(${b.left-r.left}px,${b.top-r.top}px) scale(1)`}],{duration:200,easing:'cubic-bezier(.2,.8,.2,1)'});an.onfinish=done;an.oncancel=done}else done()};
+  window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
+});
 const openPop=k=>{POP=k;POPNEW=true;if(k==='calls')CALDAY=0;renderDash()};
 const closePop=()=>{POP=null;renderDash()};
 dash.addEventListener('click',e=>{
+  if(e.target.closest('[data-layedit]')){EDITL=!EDITL;POP=null;renderDash();return}
+  if(e.target.closest('[data-layreset]')){LAY=defLay();saveLay();renderDash();return}
+  if(EDITL&&e.target.closest('.td-grid'))return;
   const tb=e.target.closest('[data-ttab]');if(tb){TTAB=tb.dataset.ttab;renderDash();return}
   const ck=e.target.closest('[data-tdone]');if(ck&&TASKS){const t=TASKS.find(x=>String(x.id)===ck.dataset.tdone);if(!t)return;const was=t.status;t.status=was==='Done'?'Not started':'Done';renderDash();
     Promise.resolve(window.TTL_TASKS&&TTL_TASKS.setDone&&TTL_TASKS.setDone(t.id,t.status==='Done')).catch(()=>{t.status=was;renderDash();toast('Could not update Notion. Try again.')});return}
   if(e.target.closest('[data-popclose]')){closePop();return}
   const cd=e.target.closest('[data-calday]');if(cd){CALDAY=+cd.dataset.calday;renderDash();return}
   if(e.target.closest('.td-new')){toast('New tasks are added in Notion for now.');return}
-  if(e.target.closest('.td-name,.td-prow')){if(POP){POP=null;renderDash()}return} // profile opens (handler below)
+  if(e.target.closest('.td-name,.td-prow,.td-ltr[data-open]')){if(POP){POP=null;renderDash()}return} // profile opens (handler below)
   // Anywhere else on a section (or its expand button) opens it as the centre pop-up.
   const pb=e.target.closest('[data-pop]');if(pb&&!e.target.closest('.td-pop')&&(e.target.closest('.td-exp,.tc-open')||!e.target.closest('button,a,input,select'))){
     const k=pb.dataset.pop;if((k==='tasks'&&!TASKS)||(k==='calls'&&!CALLS))return;openPop(k)}
@@ -221,7 +273,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#openSheet')&&location.hash!=='#sheet')history.pushState(null,'','#sheet');
   if(!dash.hidden){const t=e.target.closest('[data-team]');if(t){VIEW=t.dataset.team==='1'?(team()[0]||WHO):WHO;TASKS=CALLS=null;TTAB='Today';renderDash();loadFeeds();return}
     const co=e.target.closest('[data-coach]');if(co){VIEW=co.dataset.coach;TASKS=CALLS=null;TTAB='Today';renderDash();loadFeeds();return}
-    const o=e.target.closest('.td-name,.td-prow');if(o){openP(o.dataset.open);return}}
+    const o=!EDITL&&e.target.closest('.td-name,.td-prow,.td-ltr[data-open]');if(o){openP(o.dataset.open);return}}
   if(e.target.id==='thSwitch'||e.target.id==='whoSwitch'){e.stopImmediatePropagation();try{localStorage.setItem('ttl-who','')}catch(_){}location.replace(location.pathname)}
 },true);
 document.getElementById('thOut').onclick=()=>document.getElementById('logOut').click();
