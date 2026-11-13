@@ -54,7 +54,7 @@ function syncKcal(c,k,label){const r=(window.XS?XS.rows():[]).find(x=>x.id===c.i
   if(window.XS){const res=XS.apply([{id:c.id,f:'ds',raw:nds,client:c.name,field:'deficit_surplus'}],label||'Calories updated');if(res.applied.length)return nds}
   writeEdit(c.id,{nut:Object.assign({},(EDITS[c.id]||{}).nut||{},{kcal:k})});return nds}
 function mergeSheet(r,e){const s=e.sheet;if(!s)return r;const x=Object.assign({},r);const tb=v=>{const w=SW(v);return w==='TBD'?'':w};
-  x.ciStatus=SW(s.st)||'Not set';x.ciAction=tb(s.act);x.reminders=SW(s.rem);x.form=SW(s.form);x.programme=SW(s.wo);x.clientStatus=tb(s.cs);
+  x.ciStatus=SW(s.st)||'Not set';x.ciAction=tb(s.act);x.support=SKEY(s.sup)==='none'?'':SW(s.sup);x.reminders=SW(s.rem);x.form=SW(s.form);x.programme=SW(s.wo);x.clientStatus=tb(s.cs);
   x.appCheckin=s.app===true?'True':s.app===false?'False':'';x.formIn=s.cf===true?'True':s.cf===false?'False':'';
   x.ciNotes=s.note||'';x.weeklyNote=s.wn||'';x.refeed=s.rf||'';x.kcalText=s.ds||'';x.kcal=s.ds===r.kcalText?r.kcal:kcalFromDs(s.ds);x.notes=(s.w||[]).slice();
   x.start=s.start||'';x.end=s.end||'';x.rosterStatus=s.rs;x.status=s.rs==='Yet to start'?'New':s.rs==='On hold'?'On hold':'Active';return x}
@@ -127,7 +127,7 @@ let TAGOPEN=null;
 /* exact labels + colours from the coaches' Numbers sheets (conditional formatting) */
 const SKEY=t=>String(t||'').toLowerCase().replace(/[^a-z]/g,'');
 const SHEET_ST={tbd:['TBD','#919191','#000'],skip:['Skip','#B41700','#000'],onlycalllink:['Only Call Link','#FFBE99','#000'],datadue:['Data Due','rgba(238,113,158,.9)','#000'],sameweekrepeat:['Same Week Repeat','rgba(255,252,152,.9)','#000'],noshow:['No Show','#B41700','#FEFFFE'],onhold:['On Hold','rgba(255,140,58,.9)','#000'],recheckin:['Recheck-in','rgba(152,239,234,.9)','#000'],audioreview:['💬 Audio Review','#56C1FE','#000'],callneeded:['📞 Call needed','#FF40FF','#000'],calllinksent:['📞 Call Link Sent','#D696F8','#000'],callbooked:['📞 Call Booked','#006B65','#FEFFFE'],mastercall:['📞 Master Call','#4E88DE','#000'],reviewneeded:['🔵 Review needed','rgba(136,204,255,.9)','#000'],markedclosed:['✅ Marked Closed','rgba(175,228,137,.9)','#000'],masterreview:['🔴 Master Review','#FFFFFF','#000'],masterform:['Master Form','rgba(199,87,226,.9)','#000']};
-const SHEET_ACT={ontrack:['✅ On Track','rgba(175,228,137,.9)','#000'],dailycheckins:['🟡 Daily Check-ins','rgba(255,252,152,.9)','#000'],mealpictures:['🟠 Meal Pictures','rgba(255,211,138,.9)','#000'],flagged:['🔴 Flagged','rgba(255,151,129,.9)','#000'],redalert:['🚨 Red Alert','#B41700','#FEFFFE'],keepaneye:['👀 Keep an eye','#F7A3E3','#000'],recheckin:['🔃 Recheckin','rgba(170,148,226,.9)','#000'],movingslow:['🐢 Moving Slow','#99E3D9','#000']};
+const SHEET_ACT={ontrack:['✅ On Track','rgba(175,228,137,.9)','#000'],supportneeded:['🟡 Support Needed','#F2C230','#000'],mastersupport:['🟠 Master Support','#F08A24','#000'],commitmentweek:['🔴 Commitment Week','#E5342A','#000'],finalcall:['🚨 Final Call','#8E1200','#FEFFFE'],dailycheckins:['🟡 Daily Check-ins','rgba(255,252,152,.9)','#000'],mealpictures:['🟠 Meal Pictures','rgba(255,211,138,.9)','#000'],flagged:['🔴 Flagged','rgba(255,151,129,.9)','#000'],redalert:['🚨 Red Alert','#B41700','#FEFFFE'],keepaneye:['👀 Keep an eye','#F7A3E3','#000'],recheckin:['🔃 Recheckin','rgba(170,148,226,.9)','#000'],movingslow:['🐢 Moving Slow','#99E3D9','#000']};
 function sPill(t,kind,coach){const k=SKEY(t);let m=(kind==='act'?SHEET_ACT:SHEET_ST)[k];
   if(m&&kind==='act'&&k==='keepaneye'&&coach==='Harsh')m=[m[0],'#FF40FF','#000'];
   if(!m)m=[t,'var(--fill)','var(--label)'];
@@ -167,7 +167,7 @@ function openRules(){
 /* ---------- grid ---------- */
 let F={view:'all',coach:'all',q:'',tag:null,st:null,act:null,exp:false};let FM='filter';
 const ST_ORDER=['masterreview','mastercall','callneeded','reviewneeded','audioreview','calllinksent','callbooked','datadue','sameweekrepeat','onlycalllink','recheckin','noshow','skip','markedclosed','onhold','tbd'];
-const ACT_ORDER=['ontrack','keepaneye','dailycheckins','mealpictures','movingslow','recheckin','flagged','redalert'];
+const ACT_ORDER=['ontrack','keepaneye','supportneeded','mastersupport','commitmentweek','finalcall','dailycheckins','mealpictures','movingslow','recheckin','flagged','redalert'];
 function renderCoachSeg(){const n=k=>CLIENTS.filter(c=>k==='all'||c.coach===k).length;
   $('#coachSeg').innerHTML=[['all','All'],['Harsh','Harsh'],['Shrutika','Shrutika']].map(([k,l])=>`<button data-pc="${k}" aria-pressed="${F.coach===k}">${l}<em>${n(k)}</em></button>`).join('')}
 function render(){
@@ -191,11 +191,11 @@ function render(){
   $('#grid').innerHTML=list.length?list.map(c=>{
     const g=GRP(c);let head='';if(g[0]!==lastG){lastG=g[0];head=`<div class="gh"><span>${g[0]}</span><em>${list.filter(x=>GRP(x)[0]===g[0]).length}</em></div>`}
     const lv=LEVEL[c.comp]||'none';
-    const sig=[];const ca=c.sheet.ciAction;if(ca)sig.push({label:ca,tone:/red alert|flagged/i.test(ca)?'red':/on track/i.test(ca)?'green':'amber'});if(needsReply(c))sig.push({label:'Needs reply',tone:'red'});tagsOf(c).filter(t=>t.id!=='renew').forEach(t=>sig.push(t));
+    const sig=[];const ca=c.sheet.ciAction;if(ca)sig.push({label:ca,tone:/red alert|flagged|master support|commitment|final call/i.test(ca)?'red':/on track/i.test(ca)?'green':'amber'});if(needsReply(c))sig.push({label:'Needs reply',tone:'red'});tagsOf(c).filter(t=>t.id!=='renew').forEach(t=>sig.push(t));
     const more=sig.length-(ca?1:0);
     return head+`<button class="tile tl" data-id="${c.id}">
       <div class="tl-top"><strong class="tl-name">${esc(c.name)}${c.demo?' <span class="demo">Demo</span>':''}</strong><span class="tl-coach">${c.coach==='Shrutika'?'S':'H'}</span></div>
-      <div class="tl-pills">${c.expired?`<span class="spill" style="--c:#C0392B"><i></i>Expired${c.expiredAt?' '+esc(fmtD(new Date(c.expiredAt))):''}</span>`:''}${c.expired?'':sPill(c.comp,'st')}${ca&&SKEY(ca)!=='tbd'?sPill(ca,'act',c.coach):''}${more>0?`<span class="tl-more">+${more}</span>`:''}</div></button>`;
+      <div class="tl-pills">${c.expired?`<span class="spill" style="--c:#C0392B"><i></i>Expired${c.expiredAt?' '+esc(fmtD(new Date(c.expiredAt))):''}</span>`:''}${c.expired?'':sPill(c.comp,'st')}${ca&&SKEY(ca)!=='tbd'?sPill(ca,'act',c.coach):''}${c.sheet.support?`<span class="spill sup"><i></i>${esc(c.sheet.support)}</span>`:''}${more>0?`<span class="tl-more">+${more}</span>`:''}</div>${ladderMark(c)}</button>`;
   }).join(''):`<div class="empty">${LOADED?(CLIENTS.length?"No clients match this view.":"No clients yet. The first sync fills this page."):"Loading clients…"}</div>`;
   renderTagChips();
 }
@@ -294,10 +294,43 @@ function nutCheck(){
   const k=+$('#nk').value,t=(+$('#np').value)*4+(+$('#nc').value)*4+(+$('#nf').value)*9,diff=t-k;
   $('#nutCheck').innerHTML=`Macros add up to <b>${t.toLocaleString('en-IN')} kcal</b>${Math.abs(diff)>50?` · ${Math.abs(diff)} kcal ${diff>0?'over':'under'} the calorie target`:' · matches the calorie target'}`;
 }
+/* Check-in ladder: the business SOP. Levels are set by coaches only; the portal keeps the history and prompts. */
+const LADDER=['ontrack','keepaneye','supportneeded','mastersupport','commitmentweek','finalcall'];
+const LNAME=['On Track','Keep an Eye','Support Needed','Master Support','Commitment Week','Final Call'];
+const LDO=['','Audio review','Call with the coach','Call with both coaches','Commitment week agreed on a call','Final call with the head coach'];
+const lvOf=t=>LADDER.indexOf(SKEY(t));
+function ladderOf(c){
+  const all=window.TTL_STORE&&TTL_STORE.weekly?TTL_STORE.weekly(c.id):[];
+  const d=new Date(new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'})+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);const thisMon=d.toISOString().slice(0,10);
+  const from=c.start?new Date(Date.parse(c.start)-6*864e5).toISOString().slice(0,10):'';
+  const past=all.filter(w=>w.week_of<thisMon&&w.week_of>=from).map(w=>{const lv=Math.max(lvOf(w.peak),lvOf(w.act));return {wk:w.wk,of:w.week_of,lv,label:lv>=0?LNAME[lv]:(w.act||''),st:w.st||'',sup:w.sup||''}});
+  const cur=all.find(w=>w.week_of===thisMon);
+  const now=lvOf(c.sheet.ciAction),nowPeak=Math.max(now,cur?lvOf(cur.peak):-1);
+  const seq=past.map(w=>w.lv).concat([nowPeak]);
+  let times=0;seq.forEach((v,i)=>{if(v>=2&&(i===0||seq[i-1]<2))times++});
+  const peak=Math.max(-1,...seq),above=seq.filter(v=>v>=2).length;
+  let last=null;if(now<2)for(let i=past.length-1;i>=0;i--)if(past[i].lv>=2){last={label:past[i].label,lv:past[i].lv,ago:past.length-i};break}
+  const prev=past[past.length-1]||null;
+  return {past,now,nowPeak,times,peak,above,last,prev,on:!!(window.TTL_STORE&&TTL_STORE.weeklyOn&&TTL_STORE.weeklyOn())};
+}
+const agoTxt=n=>n===1?'last week':n+' weeks ago';
+function ladderMark(c){if(c.expired)return '';const L=ladderOf(c);return L.last?`<div class="tl-hist" title="Escalated earlier in this phase">↩ ${esc(L.last.label)} ${agoTxt(L.last.ago)}</div>`:''}
+function ladderBlock(c){const L=ladderOf(c),now=L.now;
+  const node=(lv,label,cap)=>`<div class="ld-n l${lv<0?'x':lv}"><span>${esc(cap)}</span><b>${esc(label||'Not set')}</b></div>`;
+  const steps=LNAME.map((n,i)=>`<li class="${i===now?'on':''}${i<now?' done':''} l${i}"><i></i><span>${n}</span></li>`).join('');
+  let hint='';
+  if(now>=2)hint=`<p class="ld-hint"><b>${LNAME[now]}:</b> ${LDO[now]}. This level is always a call, never only an audio.</p>`;
+  if(L.prev&&L.prev.lv>=2&&now===L.prev.lv&&now<5)hint+=`<p class="ld-hint warn"><b>Last week was also ${LNAME[now]}.</b> If nothing has changed, the next step is ${LNAME[now+1]}. You decide.</p>`;
+  const tl=L.past.length?`<div class="ld-tl">${L.past.map(w=>node(w.lv,w.label,w.wk?'Wk '+w.wk:fmtD(new Date(w.of)))).join('<em>→</em>')}<em>→</em>${node(L.nowPeak,L.nowPeak>=0?LNAME[L.nowPeak]:(c.sheet.ciAction||''),'Now')}</div>`
+    :`<p class="foot">${L.on?'History starts building from the next “Start a new week”. Every week is then kept here for good, even after the client is back On Track.':'History is not switched on yet (one small database step is pending).'}</p>`;
+  return `<section class="block ladder"><div class="ng-h"><h3>Check-in ladder</h3><span class="sdate">Set by the coach on the Sheet</span></div>
+    <ol class="ld-steps">${steps}</ol>${c.sheet.support?`<p class="ld-sup">Extra support: <b>${esc(c.sheet.support)}</b></p>`:''}${hint}
+    ${L.past.length?`<div class="nums n3 ld-nums"><div class="num"><small>Highest level this phase</small><b>${L.peak>=0?LNAME[L.peak]:'—'}</b></div><div class="num"><small>Times escalated</small><b>${L.times}</b></div><div class="num"><small>Weeks at Support Needed or above</small><b>${L.above}</b></div></div>`:''}
+    <h4 class="ld-h4">Week by week</h4>${tl}</section>`}
 function sheetWeek(c){const r=c.sheet,yn=v=>v==='True'?'Yes':v==='False'?'No':(v||'—');
   return `<section class="block"><div class="ng-h"><h3>This week</h3><span class="sdate">${c.coach}'s check-in sheet</span></div>
     <div class="ckcore c4"><div><small>Check-in status</small><b>${sPill(c.comp,'st')}</b></div><div><small>App check-in</small><b>${yn(r.appCheckin)}</b></div><div><small>Check-in form</small><b>${yn(r.formIn)}</b></div><div><small>Reminder</small><b>${esc(r.reminders||'—')}</b></div></div>
-    ${r.ciAction||r.ciNotes||r.programme?`<dl class="kv">${r.ciAction?`<dt>Action</dt><dd>${esc(r.ciAction)}</dd>`:''}${r.ciNotes?`<dt>Note</dt><dd>${esc(r.ciNotes)}</dd>`:''}${r.programme?`<dt>Workout programme</dt><dd>${esc(r.programme)}</dd>`:''}</dl>`:''}</section>`}
+    ${r.ciAction||r.ciNotes||r.programme?`<dl class="kv">${r.ciAction?`<dt>Action</dt><dd>${esc(r.ciAction)}</dd>`:''}${r.support?`<dt>Extra support</dt><dd>${esc(r.support)}</dd>`:''}${r.ciNotes?`<dt>Note</dt><dd>${esc(r.ciNotes)}</dd>`:''}${r.programme?`<dt>Workout programme</dt><dd>${esc(r.programme)}</dd>`:''}</dl>`:''}</section>`}
 function sheetNotes(c){const wk=c.notes.map((n,i)=>({n,i})).filter(x=>x.n).reverse();
   return `<section class="block"><div class="ng-h"><h3>Weekly coach notes</h3><span class="sdate">Progress sheet · ${wk.length} of 12 weeks</span></div>${wk.length?`<div class="timeline">${wk.map(({n,i})=>`<div class="note"><span class="wn">Week ${i+1}</span><p>${esc(n)}</p></div>`).join('')}</div>`:'<p class="foot">No weekly notes on the sheet yet.</p>'}</section>`}
 function dots(n,max=5){return `<span class="dots">${Array.from({length:max},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')}</span>`}
@@ -402,7 +435,7 @@ function body(c){
   }
   if(tab==='checkins'){
     const ks=ckOf(c);
-    if(!ks.length)return sheetWeek(c)+`<div class="block"><p class="foot">Typeform check-ins not matched yet. Each Monday's check-in will appear here as a week tile.</p></div>`+sheetNotes(c);
+    if(!ks.length)return sheetWeek(c)+ladderBlock(c)+`<div class="block"><p class="foot">Typeform check-ins not matched yet. Each Monday's check-in will appear here as a week tile.</p></div>`+sheetNotes(c);
     const L=ks[ks.length-1],R=CKREAD[c.id]||{},prev=ks[ks.length-2];
     const flags=[];
     if(L.guidance)flags.push(['red',`Asked for guidance${L.discuss?' · wants a '+L.discuss.toLowerCase():''}`]);
@@ -457,7 +490,7 @@ function body(c){
         <div class="ckt-top"><b>Week ${k.n}</b><span class="dpill dl-${lv}">${k.disc}/5</span></div>
         <span class="ckt-d">${fmtS(k.date)}</span>${(()=>{const z=tzWeek(c,k.n);return z?`<span class="ckt-tz">${(z.steps/1000).toFixed(1)}k avg steps</span><span class="wdots sm" aria-label="${z.done} workouts logged">${'<i class="on"></i>'.repeat(z.done)}</span>`:''})()}<span class="ckt-th">${esc(k.theme)}</span>
         <div class="ckt-ic">${k.cheat?'<span class="ic amber" title="Cheat meal">Cheat</span>':''}${k.spike!=='No'?`<span class="ic amber" title="Scale spike">Spike</span>`:''}${k.guidance?'<span class="ic red" title="Asked for guidance">Asked</span>':''}${!k.cheat&&k.spike==='No'&&!k.guidance?'<span class="ic ok">Clean week</span>':''}</div></button>`}).join('')}</div></section>`;
-    return sheetWeek(c)+latest+trends+weeks;
+    return sheetWeek(c)+ladderBlock(c)+latest+trends+weeks;
   }
   if(tab==='onboarding'){
     if(c.phases.length){const phs=c.phases.slice().reverse();

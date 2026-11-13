@@ -528,3 +528,26 @@ button.fi{cursor:pointer}button.fi:hover{background:var(--fill-2)}
 @media (max-width:760px){.hr-h{display:none}.hr-r{grid-template-columns:1fr auto}.hr-c{grid-column:1}.hr-res{grid-column:2;border:0;border-radius:8px;margin:6px 8px;padding:0 6px}.hr-f{grid-column:1 / -1;border:0;background:#FAFAFB}.hr-n{grid-column:1 / -1}}
 .xban{display:flex;align-items:center;gap:12px;justify-content:space-between;margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:#FDECEA;color:#7A1F14;font-size:13px}.xban b{display:block}.xban span{opacity:.85}
 .fnote{font-size:12px;color:#6E6E73;margin:6px 4px 0}
+
+/* Check-in ladder: tile history mark, Extra support pill, profile block */
+.spill.sup{--c:#F0A04B}
+.tl-hist{margin-top:8px;font-size:12px;font-weight:500;color:#9A5B00;background:#FFF4DC;border-radius:8px;padding:4px 8px;width:max-content;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ladder{--l0:#34A853;--l1:#C86BB5;--l2:#D9A400;--l3:#E07A14;--l4:#DC3B2E;--l5:#8E1200}
+.ld-steps{list-style:none;margin:6px 0 4px;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.ld-steps li{display:flex;flex-direction:column;gap:6px;font-size:11.5px;font-weight:500;color:var(--label-3);line-height:1.25;min-width:0}
+.ld-steps li i{height:6px;border-radius:3px;background:var(--fill)}
+.ld-steps li.done i{background:var(--label-3);opacity:.45}
+.ld-steps li.on{color:var(--label);font-weight:700}
+.ld-steps li.on.l0 i{background:var(--l0)}.ld-steps li.on.l1 i{background:var(--l1)}.ld-steps li.on.l2 i{background:var(--l2)}
+.ld-steps li.on.l3 i{background:var(--l3)}.ld-steps li.on.l4 i{background:var(--l4)}.ld-steps li.on.l5 i{background:var(--l5)}
+.ld-sup{margin:10px 0 0;font-size:13.5px;color:var(--label-2)}.ld-sup b{color:var(--label)}
+.ld-hint{margin:10px 0 0;font-size:13.5px;line-height:1.4;padding:10px 12px;border-radius:12px;background:var(--fill);color:var(--label)}
+.ld-hint.warn{background:#FFF1E0;color:#7A3E00}
+.ld-nums{margin-top:14px}.ld-nums .num b{font-size:16px;white-space:normal}
+.ld-h4{margin:16px 0 8px;font-size:13px;font-weight:600;color:var(--label-2)}
+.ld-tl{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.ld-tl em{font-style:normal;color:var(--label-3);font-size:13px}
+.ld-n{display:flex;flex-direction:column;gap:1px;padding:6px 10px;border-radius:10px;background:var(--fill);border-left:4px solid var(--label-3)}
+.ld-n span{font-size:11px;color:var(--label-2)}.ld-n b{font-size:13px;font-weight:600}
+.ld-n.l0{border-color:var(--l0)}.ld-n.l1{border-color:var(--l1)}.ld-n.l2{border-color:var(--l2)}.ld-n.l3{border-color:var(--l3)}.ld-n.l4{border-color:var(--l4)}.ld-n.l5{border-color:var(--l5)}
+@media (max-width:480px){.ld-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 6px}}

@@ -37,7 +37,7 @@ async function must(q) {
 }
 
 export function createStore(who) {
-  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [] };
+  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {} };
   const L = {}; // listeners by key: 'clients', 'edits', 'feed', 'meta/sync', 'settings/rules', 'edits/<id>', 'feed/<day>'
   const savedFeed = new Set(); // feed item timestamps already in change_log
 
@@ -53,11 +53,12 @@ export function createStore(who) {
   const fireAll = () => Object.keys(L).forEach(fire);
 
   function build(rows) {
-    const { clients, sheet, phases, weighins, health, notes, log, settings, expired } = rows;
+    const { clients, sheet, phases, weighins, health, notes, log, settings, expired, weekly = [] } = rows;
     const sheetOf = Object.fromEntries(sheet.map(s => [s.client_id, s]));
     const by = (list, key = 'client_id') => list.reduce((o, x) => ((o[x[key]] ||= []).push(x), o), {});
     const phOf = by(phases), wiOf = by(weighins), hrOf = by(health), ntOf = by(notes);
     S.clients = {}; S.edits = {}; S.rows = {};
+    S.weekly = by(weekly);
 
     for (const c of clients) {
       const s = sheetOf[c.id] || {};
@@ -75,7 +76,7 @@ export function createStore(who) {
       };
       const e = {
         sheet: { rs: s.rs, start: s.start || '', end: s.end || '', form: s.form || '', wo: s.wo || '', app: s.app ?? null, cf: s.cf ?? null,
-          rem: s.rem || 'TBD', st: s.st || 'TBD', act: s.act || 'TBD', note: s.note || '', cs: s.cs || 'TBD', wn: s.wn || '', rf: s.rf || '',
+          rem: s.rem || 'TBD', st: s.st || 'TBD', act: s.act || 'TBD', sup: s.sup || '', note: s.note || '', cs: s.cs || 'TBD', wn: s.wn || '', rf: s.rf || '',
           ds: s.ds || '', w: s.w || [], dn: s.dn || '', dds: s.dds || '', em: !!s.end_typed },
       };
       if (c.expired_at) Object.assign(e.sheet, { archived: true, expiredAt: c.expired_at });
@@ -119,7 +120,7 @@ export function createStore(who) {
 
   async function load() {
     const since = new Date(Date.now() - 60 * 864e5).toISOString();
-    const [clients, sheet, phases, weighins, health, notes, log, settings, expired] = await Promise.all([
+    const [clients, sheet, phases, weighins, health, notes, log, settings, expired, weekly] = await Promise.all([
       all(db.from('clients').select('*')),
       all(db.from('sheet_rows').select('*')),
       all(db.from('phases').select('client_id,n,type,form,date,summary,med,secs').order('n')),
@@ -129,8 +130,10 @@ export function createStore(who) {
       all(db.from('change_log').select('*').eq('undone', false).gte('at', since).order('at', { ascending: false }).limit(1000)),
       all(db.from('settings').select('*').in('key', ['tag_rules'])),
       all(db.from('expired_rows').select('*').is('client_id', null).order('created_at').range(0, 4999)),
+      // Ladder history. Until the table exists (0002 not run yet) this is simply empty.
+      db.from('weekly_record').select('*').order('week_of').range(0, 9999).then(r => { S.weeklyOn = !r.error; return r.data || []; }),
     ]);
-    build({ clients, sheet, phases, weighins, health, notes, log, settings, expired });
+    build({ clients, sheet, phases, weighins, health, notes, log, settings, expired, weekly });
   }
 
   // ---- writes: one edits document in, the matching table writes out ----
@@ -209,12 +212,13 @@ export function createStore(who) {
     if (bodyDirty) await saveBody(id, body);
   }
 
-  const SHEET_COLS = ['rs', 'start', 'end', 'form', 'wo', 'app', 'cf', 'rem', 'st', 'act', 'note', 'cs', 'wn', 'rf', 'ds', 'w', 'dn', 'dds'];
+  const SHEET_COLS = ['rs', 'start', 'end', 'form', 'wo', 'app', 'cf', 'rem', 'st', 'act', 'sup', 'note', 'cs', 'wn', 'rf', 'ds', 'w', 'dn', 'dds'];
   async function writeSheet(id, prev, next) {
     const patch = {};
     for (const k of SHEET_COLS) if (!same(prev[k], next[k])) patch[k] = next[k] === '' && (k === 'start' || k === 'end') ? null : next[k];
     if (!!prev.em !== !!next.em) patch.end_typed = !!next.em; // typed end date (extension) is never auto-overwritten
     if (Object.keys(patch).length) await must(db.from('sheet_rows').update(patch).eq('client_id', id));
+    if ('act' in patch || 'sup' in patch || 'st' in patch) await noteWeek(id, next).catch(() => {});
     if ('ds' in patch) {
       const k = kcalFromDs(patch.ds);
       if (k != null) { const body = bodyOf(id); body.calories = k; await saveBody(id, body); }
@@ -224,6 +228,40 @@ export function createStore(who) {
       const at = next.archived ? next.expiredAt || new Date().toISOString().slice(0, 10) : null;
       await saveClient(id, { expired_at: at, purge_after: at ? isoAdd(at, 365) : null });
     }
+  }
+
+  // ---- ladder history: one line per client per week, never erased by later changes ----
+  const LADDER = ['ontrack', 'keepaneye', 'supportneeded', 'mastersupport', 'commitmentweek', 'finalcall'];
+  const lv = t => LADDER.indexOf(String(t || '').toLowerCase().replace(/[^a-z]/g, ''));
+  const word = t => String(t || '').replace(/^[^A-Za-z0-9]+/, '').trim();
+  const monday = (back = 0) => { // Monday (India time) of the week that held the day `back` days ago
+    const d = new Date(dayKey(Date.now() - back * 864e5) + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7);
+    return d.toISOString().slice(0, 10);
+  };
+  const wkNo = (start, weekOf) => start ? Math.max(1, Math.floor((Math.min(Date.now(), Date.parse(weekOf) + 6 * 864e5) - Date.parse(start)) / (7 * 864e5)) + 1) : null;
+  function weekRow(id, s, weekOf) {
+    const list = (S.weekly[id] ||= []);
+    const old = list.find(x => x.week_of === weekOf);
+    const act = word(s.act) === 'TBD' ? '' : word(s.act);
+    const row = { client_id: id, week_of: weekOf, wk: wkNo(s.start, weekOf), act, sup: word(s.sup) === 'None' ? '' : word(s.sup),
+      st: old && word(s.st) === 'TBD' ? old.st : word(s.st), // a row already reset keeps the status it closed with
+      peak: old && lv(old.peak) > lv(act) ? old.peak : act, coach: S.rows[id]?.client.coach || '', saved_by: who, saved_at: new Date().toISOString() };
+    if (old) Object.assign(old, row); else { list.push(row); list.sort((a, b) => a.week_of.localeCompare(b.week_of)); }
+    return row;
+  }
+  // A change during the week: keeps this week's line current and remembers the highest level reached.
+  async function noteWeek(id, s) {
+    if (!S.weeklyOn) return;
+    await must(db.from('weekly_record').upsert(weekRow(id, s, monday())));
+  }
+  // "Start a new week": files where every client stood for the week that just ended.
+  // Pressed Sat/Sun it files the current week, pressed Mon/Tue the week before.
+  function closeWeek(ids) {
+    if (!S.weeklyOn) return Promise.resolve(false);
+    const weekOf = monday(2);
+    const rows = ids.filter(id => S.edits[id]?.sheet).map(id => weekRow(id, S.edits[id].sheet, weekOf));
+    return enqueue(async () => { if (rows.length) await must(db.from('weekly_record').upsert(rows)); return true; });
   }
 
   async function writeHist(id, s, name) {
@@ -306,6 +344,9 @@ export function createStore(who) {
     async reload() { await queue; await load(); fireAll(); },
     fireAll,
     hist: () => S.hist,
+    weekly: id => (S.weekly[id] || []).slice(),
+    weeklyOn: () => !!S.weeklyOn,
+    closeWeek,
     addClient,
     // Stand-in for the Sheet (window.XS) until step 4: only the calorie sync from the profile uses it.
     sheetApply(items) {

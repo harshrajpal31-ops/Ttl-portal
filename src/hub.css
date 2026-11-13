@@ -154,3 +154,10 @@
 .td-coach{border:1.5px solid var(--sep);background:var(--card);color:var(--label);font:inherit;font-size:15px;font-weight:600;border-radius:14px;padding:6px 12px 6px 6px;display:inline-flex;align-items:center;gap:9px;cursor:pointer}
 .td-coach em{font-style:normal;font-size:12px;font-weight:500;color:var(--label-2)}
 .td-coach[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-tint)}
+
+/* Dashboard: Escalations (head coach) */
+.td-lad{margin-top:16px}
+.td-lv{font-style:normal;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;margin-left:6px;background:#FDE3D2;color:#9A3C00}
+.td-lv.l4,.td-pst.l4{background:#FBD9D5;color:#A3231A}.td-lv.l5,.td-pst.l5{background:#8E1200;color:#fff}
+.td-pst.l3{background:#FDE3D2;color:#9A3C00}
+.td-was{margin-top:10px}
