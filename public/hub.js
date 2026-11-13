@@ -155,8 +155,8 @@ function popHTML(){
 }
 /* Check-in status: where this week's check-ins stand, straight from the Sheet. */
 function checkinHTML(){
-  // Everyone on the coach's sheet counts, except clients marked Skip this week.
-  const pool=CLIENTS.filter(c=>c.coach===VIEW&&SKEY(c.comp)!=='skip'),all=pool.length,closed=pool.filter(c=>SKEY(c.comp)==='markedclosed').length;
+  // The week's total: every client on the coach's sheet whose Check-in Status is anything except Skip or On Hold.
+  const pool=CLIENTS.filter(c=>c.coach===VIEW&&!['skip','onhold'].includes(SKEY(c.comp))),all=pool.length,closed=pool.filter(c=>SKEY(c.comp)==='markedclosed').length;
   const pct=all?Math.round(closed/all*100):0;
   return `<section class="td-card td-ci"><div class="td-h"><h2>Check-in status</h2><span class="td-live"><i></i>Live now</span></div>
     <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s":'Your'} sheet this week</p>
