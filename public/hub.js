@@ -127,11 +127,13 @@ function dashData(){
   return {needs,tagged,hot,was};
 }
 const ladRow=(x,past)=>`<button type="button" class="td-prow" data-open="${x.c.id}"><span class="td-ini">${ini(x.c)}</span><span class="td-pn"><b>${esc(x.c.name)}</b><span>Coach ${esc(x.c.coach)}${x.c.week?' · Week '+x.c.week:''}${x.L.times>1?' · escalated '+x.L.times+' times':''}</span></span><span class="td-pst l${past?x.L.peak:x.L.now}">${past?'Was '+LN(x.c)[x.L.peak]:LN(x.c)[x.L.now]}</span>${past&&x.L.now>=0?`<span class="td-pst alt">Now ${LN(x.c)[x.L.now]}</span>`:''}</button>`;
+const ladTable=(rows,past)=>`<div class="td-lt${past?' past':''}" role="table"><div class="td-ltr td-lth" role="row"><span role="columnheader">Name</span><span role="columnheader">Action</span><span role="columnheader">Coach</span></div>
+  ${rows.map(x=>`<button type="button" class="td-ltr" role="row" data-open="${x.c.id}"><span class="td-ltn" role="cell"><span class="td-ini">${ini(x.c)}</span><b>${esc(x.c.name)}</b></span><span role="cell"><i class="td-lv l${past?x.L.peak:x.L.now}">${past?'Was '+LN(x.c)[x.L.peak]:LN(x.c)[x.L.now]}</i>${past&&x.L.now>=0?`<em>Now ${LN(x.c)[x.L.now]}</em>`:''}</span><span class="td-ltc" role="cell">${esc(x.c.coach)}</span></button>`).join('')}</div>`;
 function ladderHTML(){if(!IS_OWNER)return '';const {hot,was}=dashData();
   return `<section class="td-card td-lad" data-pop="ladder"><div class="td-h"><h2>Escalations <em>${hot.length}</em></h2>${expandBtn('ladder','Escalations')}</div>
-    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s clients":'All clients'} at Accountability Call (Master Support for other coaches) or above. Tap a name for the history.</p>
-    <div class="td-names td-scroll">${hot.length?hot.map(x=>`<button type="button" class="td-name" data-open="${x.c.id}"><span class="td-ini">${ini(x.c)}</span>${esc(x.c.name)}<i class="td-lv l${x.L.now}">${LN(x.c)[x.L.now]}</i></button>`).join(''):'<p class="td-empty">Nobody is at Accountability Call (Master Support for other coaches) or above right now.</p>'}</div>
-    ${was.length?`<p class="td-sub td-was">Earlier this phase: ${was.length} client${was.length===1?'':'s'} reached Accountability Call (Master Support for other coaches) or above and came back down.</p>`:''}</section>`}
+    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s clients":'All clients'} at Accountability Call (Master Support for other coaches) or above. Tap a row for the history.</p>
+    ${hot.length?`<div class="td-scroll td-ltwrap">${ladTable(hot)}</div>`:'<p class="td-empty">Nobody is at this level right now.</p>'}
+    ${was.length?`<p class="td-sub td-was">Earlier this phase: ${was.length} client${was.length===1?'':'s'} reached this level and came back down. Expand to see them.</p>`:''}</section>`}
 const ini=c=>esc(c.name.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase());
 const person=c=>`<button type="button" class="td-name" data-open="${c.id}"><span class="td-ini">${ini(c)}</span>${esc(c.name)}</button>`;
 // Centre pop-up: one section opened large, clear of every edge of the screen.
@@ -145,8 +147,8 @@ function popHTML(){
   else if(POP==='watch'){title='Watch list';sub='<span class="td-sub">Clients the tags picked up, with the reason</span>';
     body=tagged.length?tagged.map(x=>`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-${x.t.tone}"></span><b>${esc(x.t.label)}</b><em>${x.people.length}</em></div><div class="td-plist">${x.people.map(({c,tag})=>`<button type="button" class="td-prow" data-open="${c.id}"><span class="td-ini">${ini(c)}</span><span class="td-pn"><b>${esc(c.name)}</b><span>${esc(tag.why||'')}</span></span></button>`).join('')}</div></div>`).join(''):'<p class="td-empty td-pad">No clients tagged right now.</p>'}
   else if(POP==='ladder'){const {hot,was}=dashData();title=`Escalations <em>${hot.length}</em>`;sub='<span class="td-sub">Accountability Call / Master Support and above, with who was there earlier in this phase</span>';
-    body=(hot.length?`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-red"></span><b>Now</b><em>${hot.length}</em></div><div class="td-plist">${hot.map(x=>ladRow(x)).join('')}</div></div>`:'<p class="td-empty td-pad">Nobody is at Accountability Call (Master Support for other coaches) or above right now.</p>')
-      +(was.length?`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-amber"></span><b>Earlier this phase</b><em>${was.length}</em></div><div class="td-plist">${was.map(x=>ladRow(x,true)).join('')}</div></div>`:'')}
+    body=(hot.length?`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-red"></span><b>Now</b><em>${hot.length}</em></div><div class="td-ltpad">${ladTable(hot)}</div></div>`:'<p class="td-empty td-pad">Nobody is at this level right now.</p>')
+      +(was.length?`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-amber"></span><b>Earlier this phase</b><em>${was.length}</em></div><div class="td-ltpad">${ladTable(was,true)}</div></div>`:'')}
   else return '';
   return `<div class="td-scrim" data-popclose></div><div class="td-pop${POPNEW?' in':''}" role="dialog" aria-modal="true" aria-label="${title.replace(/<[^>]+>/g,'')}">
     <div class="td-poph"><div><h2>${title}</h2>${sub}</div><button type="button" class="tc-x" data-popclose aria-label="Close">${svg(X_IC,13)}</button></div><div class="td-popb">${body}</div></div>`;
@@ -163,13 +165,13 @@ function renderDash(){
   </header>
   ${TEAM_ON()?`<div class="td-team" role="group" aria-label="Team member"><span class="td-sub">Viewing</span>${team().map(n=>`<button type="button" class="td-coach" data-coach="${esc(n)}" aria-pressed="${n===VIEW}"><span class="td-ini">${esc(n[0])}</span>${esc(n)}<em>${CLIENTS.filter(c=>c.coach===n).length} clients</em></button>`).join('')}</div>`:''}
   ${tasksHTML()}
+  ${ladderHTML()}
   <div class="td-row">
     ${callsHTML()}
     <section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
       <p class="td-sub">Master reviews, calls and reviews waiting on ${TEAM_ON()?esc(VIEW):'you'}. Tap a name for details.</p>
       <div class="td-names td-scroll">${needs.length?needs.map(person).join(''):'<p class="td-empty">Nobody is waiting on you right now.</p>'}</div></section>
   </div>
-  ${ladderHTML()}
   <section class="td-watch" data-pop="watch"><div class="td-h"><h2>Watch list</h2><span class="td-wsub"><span class="td-sub">Clients the tags picked up</span>${expandBtn('watch','Watch list')}</span></div>
     ${tagged.length?`<div class="td-tags">${tagged.map(x=>`<div class="td-card td-tg"><div class="td-tgh"><span class="td-dot t-${x.t.tone}"></span><b>${esc(x.t.label)}</b><em>${x.people.length}</em></div><div class="td-names td-scroll">${x.people.map(x=>person(x.c)).join('')}</div></div>`).join('')}</div>`
       :`<div class="td-card"><p class="td-empty">No clients tagged right now. Silent, Plateau, Regaining and the other tags fill in once Trainerize weights and weekly check-ins come into the portal.</p></div>`}
