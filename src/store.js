@@ -232,7 +232,7 @@ export function createStore(who) {
 
   // ---- ladder history: one line per client per week, never erased by later changes ----
   const LADDER = ['audioreview', 'keepaneye', 'generalcall', 'supportcall', 'accountabilitycall', 'commitmentweek', 'finalcall'];
-  const lv = t => LADDER.indexOf(String(t || '').toLowerCase().replace(/[^a-z]/g, ''));
+  const lv = t => LADDER.indexOf(String(t || '').toLowerCase().replace(/[^a-z]/g, '').replace('mastersupport', 'accountabilitycall'));
   const word = t => String(t || '').replace(/^[^A-Za-z0-9]+/, '').trim();
   const monday = (back = 0) => { // Monday (India time) of the week that held the day `back` days ago
     const d = new Date(dayKey(Date.now() - back * 864e5) + 'T00:00:00Z');

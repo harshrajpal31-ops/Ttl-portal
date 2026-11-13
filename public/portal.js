@@ -299,12 +299,14 @@ const LADDER=['audioreview','keepaneye','generalcall','supportcall','accountabil
 const LNAME=['Audio Review','Keep an Eye','General Call','Support Call','Accountability Call','Commitment Week','Final Call'];
 const LDO=['Check-in reviewed, audio sent','Audio sent, still watching','A light follow-up call','First call for not performing: understanding and empathetic','Second call: straight and firm','Commitment week given','Final call'];
 const L_ESC=3,L_HOT=4,L_OLD={ontrack:0,supportneeded:3,mastersupport:4}; /* escalation starts at Support Call; the head coach list starts at Accountability Call */
+const LN=c=>c&&c.coach!=='Harsh'?LNAME.map((n,i)=>i===L_HOT?'Master Support':n):LNAME; /* other coaches' firm call is a Master Support call with the head coach */
+const LD=c=>c&&c.coach!=='Harsh'?LDO.map((n,i)=>i===L_HOT?'Call with both coaches: straight and firm':n):LDO;
 const lvOf=t=>{const k=SKEY(t);return k in L_OLD?L_OLD[k]:LADDER.indexOf(k)};
 function ladderOf(c){
   const all=window.TTL_STORE&&TTL_STORE.weekly?TTL_STORE.weekly(c.id):[];
   const d=new Date(new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'})+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);const thisMon=d.toISOString().slice(0,10);
   const from=c.start?new Date(Date.parse(c.start)-6*864e5).toISOString().slice(0,10):'';
-  const past=all.filter(w=>w.week_of<thisMon&&w.week_of>=from).map(w=>{const lv=lvOf(w.act||w.peak);return {wk:w.wk,of:w.week_of,lv,label:lv>=0?LNAME[lv]:(w.act||''),st:w.st||'',sup:w.sup||''}});
+  const past=all.filter(w=>w.week_of<thisMon&&w.week_of>=from).map(w=>{const lv=lvOf(w.act||w.peak);return {wk:w.wk,of:w.week_of,lv,label:lv>=0?LN(c)[lv]:(w.act||''),st:w.st||'',sup:w.sup||''}});
   const cur=all.find(w=>w.week_of===thisMon);
   const now=lvOf(c.sheet.ciAction),nowPeak=now;
   const seq=past.map(w=>w.lv).concat([nowPeak]);
@@ -318,15 +320,15 @@ const agoTxt=n=>n===1?'last week':n+' weeks ago';
 function ladderMark(c){if(c.expired)return '';const L=ladderOf(c);return L.last?`<div class="tl-hist" title="Escalated earlier in this phase">↩ ${esc(L.last.label)} ${agoTxt(L.last.ago)}</div>`:''}
 function ladderBlock(c){const L=ladderOf(c),now=L.now;
   const node=(lv,label,cap)=>`<div class="ld-n l${lv<0?'x':lv}"><span>${esc(cap)}</span><b>${esc(label||'Not set')}</b></div>`;
-  const steps=LNAME.map((n,i)=>`<li class="${i===now?'on':''}${i<now?' done':''} l${i}"><i></i><span>${n}</span></li>`).join('');
+  const steps=LN(c).map((n,i)=>`<li class="${i===now?'on':''}${i<now?' done':''} l${i}"><i></i><span>${n}</span></li>`).join('');
   let hint='';
-  if(now>=0)hint=`<p class="ld-hint"><b>${LNAME[now]}:</b> ${LDO[now]}.</p>`;
-  if(L.prev&&L.prev.lv>=L_ESC&&now===L.prev.lv&&now<6)hint+=`<p class="ld-hint warn"><b>Last week was also ${LNAME[now]}.</b> If nothing has changed, the next step is ${LNAME[now+1]}. You decide.</p>`;
-  const tl=L.past.length?`<div class="ld-tl">${L.past.map(w=>node(w.lv,w.label,w.wk?'Wk '+w.wk:fmtD(new Date(w.of)))).join('<em>→</em>')}<em>→</em>${node(L.nowPeak,L.nowPeak>=0?LNAME[L.nowPeak]:(c.sheet.ciAction||''),'Now')}</div>`
+  if(now>=0)hint=`<p class="ld-hint"><b>${LN(c)[now]}:</b> ${LD(c)[now]}.</p>`;
+  if(L.prev&&L.prev.lv>=L_ESC&&now===L.prev.lv&&now<6)hint+=`<p class="ld-hint warn"><b>Last week was also ${LN(c)[now]}.</b> If nothing has changed, the next step is ${LN(c)[now+1]}. You decide.</p>`;
+  const tl=L.past.length?`<div class="ld-tl">${L.past.map(w=>node(w.lv,w.label,w.wk?'Wk '+w.wk:fmtD(new Date(w.of)))).join('<em>→</em>')}<em>→</em>${node(L.nowPeak,L.nowPeak>=0?LN(c)[L.nowPeak]:(c.sheet.ciAction||''),'Now')}</div>`
     :`<p class="foot">${L.on?'History starts building from the next “Start a new week”. Every week is then kept here for good, even after the client is back On Track.':'History is not switched on yet (one small database step is pending).'}</p>`;
   return `<section class="block ladder"><div class="ng-h"><h3>Check-in action</h3><span class="sdate">Set by the coach on the Sheet</span></div>
     <ol class="ld-steps">${steps}</ol>${c.sheet.support?`<p class="ld-sup">Extra support: <b>${esc(c.sheet.support)}</b></p>`:''}${hint}
-    ${L.past.length?`<div class="nums n3 ld-nums"><div class="num"><small>Highest level this phase</small><b>${L.peak>=0?LNAME[L.peak]:'—'}</b></div><div class="num"><small>Times escalated</small><b>${L.times}</b></div><div class="num"><small>Weeks at Support Call or above</small><b>${L.above}</b></div></div>`:''}
+    ${L.past.length?`<div class="nums n3 ld-nums"><div class="num"><small>Highest level this phase</small><b>${L.peak>=0?LN(c)[L.peak]:'—'}</b></div><div class="num"><small>Times escalated</small><b>${L.times}</b></div><div class="num"><small>Weeks at Support Call or above</small><b>${L.above}</b></div></div>`:''}
     <h4 class="ld-h4">Week by week</h4>${tl}</section>`}
 function sheetWeek(c){const r=c.sheet,yn=v=>v==='True'?'Yes':v==='False'?'No':(v||'—');
   return `<section class="block"><div class="ng-h"><h3>This week</h3><span class="sdate">${c.coach}'s check-in sheet</span></div>

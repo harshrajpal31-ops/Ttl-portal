@@ -119,19 +119,19 @@ function dashData(){
   const pool=CLIENTS.filter(c=>c.coach===VIEW);
   const needs=pool.filter(c=>rk(c)<=2).sort((a,b)=>rk(a)-rk(b)||a.name.localeCompare(b.name));
   const tagged=TAGDEF.filter(t=>t.id!=='renew').map(t=>({t,people:pool.map(c=>({c,tag:tagsOf(c).find(x=>x.id===t.id)})).filter(x=>x.tag)})).filter(x=>x.people.length);
-  // Head coach only: who is at Accountability Call or above now, and who was there earlier in this phase.
+  // Head coach only: who is at Accountability Call (Master Support for other coaches) or above now, and who was there earlier in this phase.
   const lpool=IS_OWNER?(TEAM_ON()?pool:CLIENTS):[];
   const esc2=lpool.map(c=>({c,L:ladderOf(c)}));
   const hot=esc2.filter(x=>x.L.now>=L_HOT).sort((a,b)=>b.L.now-a.L.now||a.c.name.localeCompare(b.c.name));
   const was=esc2.filter(x=>x.L.now<L_HOT&&x.L.peak>=L_HOT).sort((a,b)=>a.c.name.localeCompare(b.c.name));
   return {needs,tagged,hot,was};
 }
-const ladRow=(x,past)=>`<button type="button" class="td-prow" data-open="${x.c.id}"><span class="td-ini">${ini(x.c)}</span><span class="td-pn"><b>${esc(x.c.name)}</b><span>Coach ${esc(x.c.coach)}${x.c.week?' · Week '+x.c.week:''}${x.L.times>1?' · escalated '+x.L.times+' times':''}</span></span><span class="td-pst l${past?x.L.peak:x.L.now}">${past?'Was '+LNAME[x.L.peak]:LNAME[x.L.now]}</span>${past&&x.L.now>=0?`<span class="td-pst alt">Now ${LNAME[x.L.now]}</span>`:''}</button>`;
+const ladRow=(x,past)=>`<button type="button" class="td-prow" data-open="${x.c.id}"><span class="td-ini">${ini(x.c)}</span><span class="td-pn"><b>${esc(x.c.name)}</b><span>Coach ${esc(x.c.coach)}${x.c.week?' · Week '+x.c.week:''}${x.L.times>1?' · escalated '+x.L.times+' times':''}</span></span><span class="td-pst l${past?x.L.peak:x.L.now}">${past?'Was '+LN(x.c)[x.L.peak]:LN(x.c)[x.L.now]}</span>${past&&x.L.now>=0?`<span class="td-pst alt">Now ${LN(x.c)[x.L.now]}</span>`:''}</button>`;
 function ladderHTML(){if(!IS_OWNER)return '';const {hot,was}=dashData();
   return `<section class="td-card td-lad" data-pop="ladder"><div class="td-h"><h2>Escalations <em>${hot.length}</em></h2>${expandBtn('ladder','Escalations')}</div>
-    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s clients":'All clients'} at Accountability Call or above. Tap a name for the history.</p>
-    <div class="td-names td-scroll">${hot.length?hot.map(x=>`<button type="button" class="td-name" data-open="${x.c.id}"><span class="td-ini">${ini(x.c)}</span>${esc(x.c.name)}<i class="td-lv l${x.L.now}">${LNAME[x.L.now]}</i></button>`).join(''):'<p class="td-empty">Nobody is at Accountability Call or above right now.</p>'}</div>
-    ${was.length?`<p class="td-sub td-was">Earlier this phase: ${was.length} client${was.length===1?'':'s'} reached Accountability Call or above and came back down.</p>`:''}</section>`}
+    <p class="td-sub">${TEAM_ON()?esc(VIEW)+"'s clients":'All clients'} at Accountability Call (Master Support for other coaches) or above. Tap a name for the history.</p>
+    <div class="td-names td-scroll">${hot.length?hot.map(x=>`<button type="button" class="td-name" data-open="${x.c.id}"><span class="td-ini">${ini(x.c)}</span>${esc(x.c.name)}<i class="td-lv l${x.L.now}">${LN(x.c)[x.L.now]}</i></button>`).join(''):'<p class="td-empty">Nobody is at Accountability Call (Master Support for other coaches) or above right now.</p>'}</div>
+    ${was.length?`<p class="td-sub td-was">Earlier this phase: ${was.length} client${was.length===1?'':'s'} reached Accountability Call (Master Support for other coaches) or above and came back down.</p>`:''}</section>`}
 const ini=c=>esc(c.name.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase());
 const person=c=>`<button type="button" class="td-name" data-open="${c.id}"><span class="td-ini">${ini(c)}</span>${esc(c.name)}</button>`;
 // Centre pop-up: one section opened large, clear of every edge of the screen.
@@ -144,8 +144,8 @@ function popHTML(){
     body=needs.length?`<div class="td-plist">${needs.map(c=>`<button type="button" class="td-prow" data-open="${c.id}"><span class="td-ini">${ini(c)}</span><span class="td-pn"><b>${esc(c.name)}</b><span>Coach ${esc(c.coach)}${c.week?' · Week '+c.week:''}</span></span><span class="td-pst">${esc(c.comp)}</span>${c.sheet&&c.sheet.ciAction?`<span class="td-pst alt">${esc(c.sheet.ciAction)}</span>`:''}</button>`).join('')}</div>`:'<p class="td-empty td-pad">Nobody is waiting on you right now.</p>'}
   else if(POP==='watch'){title='Watch list';sub='<span class="td-sub">Clients the tags picked up, with the reason</span>';
     body=tagged.length?tagged.map(x=>`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-${x.t.tone}"></span><b>${esc(x.t.label)}</b><em>${x.people.length}</em></div><div class="td-plist">${x.people.map(({c,tag})=>`<button type="button" class="td-prow" data-open="${c.id}"><span class="td-ini">${ini(c)}</span><span class="td-pn"><b>${esc(c.name)}</b><span>${esc(tag.why||'')}</span></span></button>`).join('')}</div></div>`).join(''):'<p class="td-empty td-pad">No clients tagged right now.</p>'}
-  else if(POP==='ladder'){const {hot,was}=dashData();title=`Escalations <em>${hot.length}</em>`;sub='<span class="td-sub">Accountability Call and above, with who was there earlier in this phase</span>';
-    body=(hot.length?`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-red"></span><b>Now</b><em>${hot.length}</em></div><div class="td-plist">${hot.map(x=>ladRow(x)).join('')}</div></div>`:'<p class="td-empty td-pad">Nobody is at Accountability Call or above right now.</p>')
+  else if(POP==='ladder'){const {hot,was}=dashData();title=`Escalations <em>${hot.length}</em>`;sub='<span class="td-sub">Accountability Call / Master Support and above, with who was there earlier in this phase</span>';
+    body=(hot.length?`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-red"></span><b>Now</b><em>${hot.length}</em></div><div class="td-plist">${hot.map(x=>ladRow(x)).join('')}</div></div>`:'<p class="td-empty td-pad">Nobody is at Accountability Call (Master Support for other coaches) or above right now.</p>')
       +(was.length?`<div class="td-pgrp"><div class="td-tgh"><span class="td-dot t-amber"></span><b>Earlier this phase</b><em>${was.length}</em></div><div class="td-plist">${was.map(x=>ladRow(x,true)).join('')}</div></div>`:'')}
   else return '';
   return `<div class="td-scrim" data-popclose></div><div class="td-pop${POPNEW?' in':''}" role="dialog" aria-modal="true" aria-label="${title.replace(/<[^>]+>/g,'')}">
