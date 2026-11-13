@@ -37,7 +37,7 @@ async function must(q) {
 }
 
 export function createStore(who) {
-  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {} };
+  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {} };
   const L = {}; // listeners by key: 'clients', 'edits', 'feed', 'meta/sync', 'settings/rules', 'edits/<id>', 'feed/<day>'
   const savedFeed = new Set(); // feed item timestamps already in change_log
 
@@ -114,6 +114,8 @@ export function createStore(who) {
     const lastJob = log.find(r => r.via === 'job');
     S.meta = lastJob ? { at: Date.parse(lastJob.at) } : {};
 
+    // Cell comments on the Sheet: one settings row per client, key 'comment:<client id>', value { field: { t, by, at } }.
+    S.comments = Object.fromEntries(settings.filter(x => x.key.startsWith('comment:')).map(x => [x.key.slice(8), x.value || {}]));
     const tr = (settings.find(x => x.key === 'tag_rules') || {}).value;
     S.rules = tr ? Object.fromEntries(Object.entries(RULE_KEYS).filter(([, k]) => tr[k] != null).map(([d, k]) => [d, +tr[k]])) : undefined;
   }
@@ -128,7 +130,7 @@ export function createStore(who) {
       all(db.from('health_review').select('*')),
       all(db.from('client_notes').select('*').order('at', { ascending: false })),
       all(db.from('change_log').select('*').eq('undone', false).gte('at', since).order('at', { ascending: false }).limit(1000)),
-      all(db.from('settings').select('*').in('key', ['tag_rules'])),
+      all(db.from('settings').select('*')),
       all(db.from('expired_rows').select('*').is('client_id', null).order('created_at').range(0, 4999)),
       // Ladder history. Until the table exists (0002 not run yet) this is simply empty.
       db.from('weekly_record').select('*').order('week_of').range(0, 9999).then(r => { S.weeklyOn = !r.error; return r.data || []; }),
@@ -265,6 +267,23 @@ export function createStore(who) {
     return enqueue(async () => { if (rows.length) await must(db.from('weekly_record').upsert(rows)); return true; });
   }
 
+  // One comment per cell. The row is re-read before saving so two coaches commenting on the same client never overwrite each other.
+  function setComment(id, f, text) {
+    const mine = { ...(S.comments[id] || {}) };
+    if (text) mine[f] = { t: text, by: who, at: new Date().toISOString() }; else delete mine[f];
+    S.comments[id] = mine;
+    return enqueue(async () => {
+      const key = 'comment:' + id;
+      const { data, error } = await db.from('settings').select('value').eq('key', key).maybeSingle();
+      if (error) throw error;
+      const value = { ...((data && data.value) || {}) };
+      if (text) value[f] = mine[f]; else delete value[f];
+      if (Object.keys(value).length) await must(db.from('settings').upsert({ key, value }));
+      else await must(db.from('settings').delete().eq('key', key));
+      S.comments[id] = value;
+    });
+  }
+
   async function writeHist(id, s, name) {
     const patch = { rs: s.rs || '', start: String(s.start ?? ''), end: String(s.end ?? '') };
     if (s.xn) patch.x = Array.from({ length: 16 }, (_, i) => s.xn[i] || '');
@@ -348,6 +367,8 @@ export function createStore(who) {
     weekly: id => (S.weekly[id] || []).slice(),
     weeklyOn: () => !!S.weeklyOn,
     closeWeek,
+    comment: (id, f) => (S.comments[id] || {})[f] || null,
+    setComment,
     addClient,
     // Stand-in for the Sheet (window.XS) until step 4: only the calorie sync from the profile uses it.
     sheetApply(items) {
