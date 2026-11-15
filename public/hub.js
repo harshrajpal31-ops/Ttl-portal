@@ -35,7 +35,7 @@ home.innerHTML=`<div class="th-wrap">
     <a class="th-tile" href="https://calendly.com/event_types/user/me" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">🗓️</span><b>Calendly <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Call links and bookings</span></a>
     <a class="th-tile" href="https://admin.typeform.com" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">📝</span><b>Typeform <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Onboarding and check-in forms</span></a>
   </nav>
-  <p class="th-foot">Using as <b>${esc(WHO)}</b> · <button type="button" class="linkbtn" id="thSwitch">Switch</button> · <button type="button" class="linkbtn" id="thOut">Log out</button></p>
+  <p class="th-foot">Using as <b>${esc(WHO)}</b> · ${window.TTL_CAN_SWITCH?'<button type="button" class="linkbtn" id="thSwitch">Switch</button> · ':''}<button type="button" class="linkbtn" id="thOut">Log out</button></p>
 </div>`;
 app.appendChild(home);
 
@@ -374,7 +374,7 @@ document.addEventListener('click',e=>{
   if(!dash.hidden){const t=e.target.closest('[data-team]');if(t){VIEW=t.dataset.team==='1'?(team()[0]||WHO):WHO;TASKS=CALLS=null;TTAB='Today';renderDash();loadFeeds();return}
     const co=e.target.closest('[data-coach]');if(co){VIEW=co.dataset.coach;TASKS=CALLS=null;TTAB='Today';renderDash();loadFeeds();return}
     const o=!EDITL&&e.target.closest('.td-name,.td-prow,.td-ltr[data-open]');if(o){openP(o.dataset.open);return}}
-  if(e.target.id==='thSwitch'||e.target.id==='whoSwitch'){e.stopImmediatePropagation();try{localStorage.setItem('ttl-who','')}catch(_){}location.replace(location.pathname)}
+  if(e.target.id==='thSwitch'||e.target.id==='whoSwitch'){e.stopImmediatePropagation();try{localStorage.setItem('ttl-pick','1')}catch(_){}location.replace(location.pathname)}
 },true);
 document.getElementById('thOut').onclick=()=>document.getElementById('logOut').click();
 

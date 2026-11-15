@@ -24,43 +24,30 @@ function loginScreen() {
   };
 }
 
-// Teammates added here are kept in settings; everyone on the list can pick their name.
-async function whoScreen(adding) {
+// Each coach has their own login. Their name is the first word of their email: shrutika@... is Shrutika.
+const OWNER = 'Harsh';
+const nameOf = email => { const w = String(email || '').split('@')[0].split(/[^A-Za-z]/)[0]; return w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ''; };
+let LOGIN = '';
+// Only the head coach can look at the portal as someone else (for testing and checking). Everyone else goes straight in as themselves.
+const whoNow = () => (LOGIN === OWNER && getWho()) || LOGIN;
+const picking = () => LOGIN === OWNER && localStorage.getItem('ttl-pick') === '1';
+
+async function whoScreen() {
   let team = [];
   try { const { data } = await db.from('settings').select('value').eq('key', 'coaches').maybeSingle(); if (data && Array.isArray(data.value)) team = data.value; } catch (_) {}
-  const names = [...new Set(['Harsh', 'Shrutika', ...team])];
+  const names = [...new Set([OWNER, 'Shrutika', ...team])];
   const safe = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   app.innerHTML = shell(`
-    <h1>Who's using the portal?</h1><p class="muted">Your changes are logged under this name. You can switch it later.</p>
-    ${names.map((n, i) => `<button ${i ? 'class="ghost" ' : ''}data-w="${safe(n)}">${safe(n)}</button>`).join('')}
-    ${adding ? `<form id="addMate" class="addmate"><label for="mateName">Teammate's first name</label><input id="mateName" autocomplete="off" maxlength="24" placeholder="e.g. Aditi">
-        <p class="err" id="mateErr" role="alert"></p><button type="submit">Add teammate</button><button type="button" class="link" id="mateNo">Cancel</button>
-        <p class="muted small">They get the same set-up as Shrutika: their own sheets, Dashboard and place in the team chat.</p></form>`
-      : `<button type="button" class="link" id="mateAdd">+ Add teammate</button>`}`);
-  app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(b.dataset.w); render(); });
-  const add = document.getElementById('mateAdd'); if (add) add.onclick = () => whoScreen(true);
-  const no = document.getElementById('mateNo'); if (no) no.onclick = () => whoScreen(false);
-  const form = document.getElementById('addMate');
-  if (form) {
-    document.getElementById('mateName').focus();
-    form.onsubmit = async e => {
-      e.preventDefault();
-      const err = document.getElementById('mateErr'), raw = document.getElementById('mateName').value.trim().replace(/\s+/g, ' ');
-      const name = raw ? raw[0].toUpperCase() + raw.slice(1) : '';
-      if (!/^[A-Za-z][A-Za-z .'-]{1,23}$/.test(name)) { err.textContent = 'Type a first name, letters only.'; return; }
-      if (names.some(n => n.toLowerCase() === name.toLowerCase())) { err.textContent = name + ' is already on the team.'; return; }
-      const { error } = await db.from('settings').upsert({ key: 'coaches', value: [...team, name] });
-      if (error) { err.textContent = 'Could not add: ' + error.message; return; }
-      whoScreen(false);
-    };
-  }
+    <h1>View the portal as</h1><p class="muted">Only you see this screen. Changes are logged under the name you pick.</p>
+    ${names.map((n, i) => `<button ${i ? 'class="ghost" ' : ''}data-w="${safe(n)}">${safe(n)}</button>`).join('')}`);
+  app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(b.dataset.w === OWNER ? '' : b.dataset.w); localStorage.removeItem('ttl-pick'); render(); });
 }
 
 let started = false;
 async function portal() {
   if (started) return;
   started = true;
-  const who = getWho();
+  const who = whoNow();
   app.innerHTML = shell(`<h1>Loading clients…</h1><p class="muted">Twice the Lean</p>`);
   const store = createStore(who);
   try { await store.load(); }
@@ -75,7 +62,11 @@ async function portal() {
   document.title = 'Coach Portal';
   app.innerHTML = portalHTML;
   document.getElementById('whoName').textContent = who;
-  document.getElementById('whoSwitch').onclick = () => { setWho(''); location.reload(); };
+  window.TTL_CAN_SWITCH = LOGIN === OWNER;
+  const sw = document.getElementById('whoSwitch');
+  if (window.TTL_CAN_SWITCH) sw.onclick = () => { localStorage.setItem('ttl-pick', '1'); location.reload(); };
+  else { if (sw.nextSibling && sw.nextSibling.nodeType === 3) sw.nextSibling.remove(); sw.remove(); }
+  if (store.coaches && !store.coaches().includes(who)) store.addCoach(who).catch(() => {}); // a new login joins the team lists the first time they open the portal
   document.getElementById('logOut').onclick = async () => { await db.auth.signOut(); location.reload(); };
 
   // Excel export for the Sheet; the library loads only when someone exports.
@@ -101,7 +92,9 @@ async function portal() {
 async function render() {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { if (started) location.reload(); return loginScreen(); }
-  if (!getWho()) return whoScreen();
+  LOGIN = nameOf(session.user.email);
+  if (!LOGIN) { app.innerHTML = shell(`<h1>This login has no name</h1><p class="muted">The email must start with the coach's first name, like shrutika@…</p>`); return; }
+  if (picking() && !started) return whoScreen();
   portal();
 }
 
