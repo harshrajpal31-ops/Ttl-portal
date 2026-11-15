@@ -16,7 +16,7 @@ try{LOG=JSON.parse(localStorage.getItem(LS+'-log')||'[]')}catch(e){}
 const B=v=>String(v)==='True'?true:String(v)==='False'?false:null;
 function rowFrom(r){const s=(EDITS[r.id]||{}).sheet;if(s)return Object.assign({id:r.id,name:r.name,coach:r.coach},JSON.parse(JSON.stringify(s)));
   return {id:r.id,name:r.name,coach:r.coach,rs:({active:'Active','yet to start':'Yet to start','on hold':'On hold'})[String(r.rosterStatus||'').trim().toLowerCase()]||(r.status==='New'?'Yet to start':r.status==='On hold'?'On hold':'Active'),
-    start:r.start||'',end:r.end||'',form:r.form||'',wo:r.coach==='Shrutika'?(r.programme||''):'',app:B(r.appCheckin),cf:B(r.formIn),rem:r.reminders||'TBD',
+    start:r.start||'',end:r.end||'',form:r.form||'',wo:r.coach!=='Harsh'?(r.programme||''):'',app:B(r.appCheckin),cf:B(r.formIn),rem:r.reminders||'TBD',
     st:(r.ciStatus&&r.ciStatus!=='Not set')?r.ciStatus:'TBD',act:r.ciAction||'TBD',sup:'',note:r.ciNotes||'',cs:r.clientStatus||'TBD',wn:r.weeklyNote||'',rf:r.refeed||'',ds:r.kcalText||'',
     w:Array.from({length:12},(_,i)=>(r.notes||[])[i]||''),archived:false}}
 const rowToSheet=r=>({em:!!r.em,expiredAt:r.expiredAt||'',react:!!r.react,dn:r.dn||'',dds:r.dds||'',xn:r.xn?r.xn.slice():undefined,rs:r.rs,start:r.start,end:r.end,form:r.form,wo:r.wo,app:r.app,cf:r.cf,rem:r.rem,st:r.st,act:r.act,sup:r.sup||'',note:r.note,cs:r.cs,wn:r.wn,rf:r.rf,ds:r.ds,w:(r.w||[]).slice(),archived:!!r.archived});
@@ -25,7 +25,7 @@ function save(){try{localStorage.setItem(LS+'-log',JSON.stringify(LOG.slice(0,30
   if(!DIRTY.size)return;const map={};DIRTY.forEach(r=>{map[r.id]={sheet:rowToSheet(r)}});DIRTY.clear();writeEditsBulk(map)}
 function feedLog(e){try{if(e.batch)logEvent({title:e.label,detail:e.items.length+' cell'+(e.items.length===1?'':'s')+' · Sheet'});else logEvent({client:e.id,title:F[e.f].l+' updated',detail:dispV(e.f,e.old)+' → '+dispV(e.f,e.nw)+' · Sheet'})}catch(_){}}
 const F={
-  st:{l:'Check-in Status',t:'pop'},act:{l:'Check-in Action',t:'pop'},sup:{l:'Extra support',t:'pop'},form:{l:'Form / Program',t:'pop'},wo:{l:'Workouts',t:'pop',only:'Shrutika'},rem:{l:'Reminders',t:'pop'},
+  st:{l:'Check-in Status',t:'pop'},act:{l:'Check-in Action',t:'pop'},sup:{l:'Extra support',t:'pop'},form:{l:'Form / Program',t:'pop'},wo:{l:'Workouts',t:'pop',only:'team'},rem:{l:'Reminders',t:'pop'},
   app:{l:'App Check-in',t:'chk'},cf:{l:'Check-in Form',t:'chk'},note:{l:'Check-in Notes',t:'text'},
   cs:{l:'Client Status',t:'pop'},wn:{l:'Weekly Notes',t:'text'},rf:{l:'Refeed / Diet Break',t:'text'},ds:{l:'Deficit / Surplus',t:'text'},
   rs:{l:'Status',t:'pick',o:['Active','Yet to start','On hold','Expired']},start:{l:'Start Date',t:'date'},end:{l:'End Date',t:'date'},dn:{l:'Notes',t:'text',wide:1},dds:{l:'Deficit / Surplus',t:'text'}
@@ -34,13 +34,14 @@ for(let i=1;i<=12;i++)F['w'+i]={l:'Week '+i,t:'text',wk:1};
 for(let i=1;i<=16;i++)F['x'+i]={l:i===1?'Notes':'',t:'text',wk:1,wide:i===1};
 for(let i=1;i<=14;i++)F['g'+i]={l:'',t:'fill'};
 const RSCOL={'active':'rgba(175,228,137,0.90)','onhold':'rgba(152,239,234,0.90)','expired':'rgba(255,151,129,0.90)','yettostart':'rgba(255,252,152,0.90)'};
-const NAMECOL={Harsh:'#BDD6AB',Shrutika:'#A9C1F0'};
+const NAMEPAL=['#A9C1F0','#F3C9A5','#D9B8F0','#A8E0D6','#F2B8C6','#E3DE9C'];
+const NAMECOL=new Proxy({Harsh:'#BDD6AB'},{get:(t,k)=>t[k]||(typeof k==='string'&&k?NAMEPAL[Math.max(0,coachList().indexOf(k)-1)%NAMEPAL.length]:undefined)});
 let SORT={};
 const HLAB={dates:{name:'NAMES',rs:'STATUS',start:'START DATE',end:'END DATE'},expired:{name:'Name of Client',rs:'Status',start:'Start date',end:'End date'}};
 const SHEETS={dates:{l:'All Dates List',cols:['rs','start','end','dn','dds',...Array.from({length:14},(_,i)=>'g'+(i+1))]},checkin:{l:'Check-in',cols:['form','wo','app','cf','rem','st','act','sup','note']},progress:{l:'Progress',cols:['cs','wn','rf','ds',...Array.from({length:12},(_,i)=>'w'+(i+1))]},expired:{l:'Expired and hold',cols:['rs','start','end',...Array.from({length:16},(_,i)=>'x'+(i+1))]}};
 /* Check-in and Progress are one coach at a time (no All). All Dates List and Expired always show everyone. */
 const SPLIT=t=>t==='checkin'||t==='progress';
-const coachList=()=>{const s=[...new Set(ROWS.map(r=>r.coach).filter(Boolean))].sort((a,b)=>(a==='Harsh'?-1:b==='Harsh'?1:a.localeCompare(b)));return s.length?s:['Harsh','Shrutika']};
+const coachList=()=>window.TTL_STORE&&TTL_STORE.coaches?TTL_STORE.coaches():['Harsh','Shrutika'];
 let CSEL=window.TTL_WHO||'Harsh',XALL=false;
 const CO=()=>{if(XALL||!SPLIT(TAB))return 'all';const C=coachList();if(!C.includes(CSEL))CSEL=C[0];return CSEL};
 let TAB='checkin',Q='',SEL=null,SELCOL=null,INSP=innerWidth>1000,ITAB='client',EDIT=null;
@@ -102,7 +103,7 @@ function cell0(r,f,ri,ci,R){
   const D=F[f],v=get(r,f),k=cls(ri,ci,R);
   const at=`data-ri="${ri}" data-ci="${ci}"`;
   if(D.t==='fill')return `<td class="flc${k}" ${at}><div class="c w-fill"></div></td>`;
-  if(D.only&&r.coach!==D.only)return `<td class="na${k}" ${at}><div class="c w-pop ctr"><span class="mut">—</span></div></td>`;
+  if(D.only&&r.coach==='Harsh')return `<td class="na${k}" ${at}><div class="c w-pop ctr"><span class="mut">—</span></div></td>`;
   if(D.t==='chk')return `<td class="${k}" ${at}><div class="c w-chk">${v===true?'<svg class="tick" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 5 5 10-11"/></svg>':v===false?'<span class="cbx"></span>':''}</div></td>`;
   if(D.t==='pop'){const cv=canon(f,v),c=v?colorOf(f,cv):null;return `<td class="${c?'fill':''}${k}" ${at} ${c?`style="--bg:${c[0]};--fg:${c[1]}"`:''}><div class="c w-pop ctr"><span class="pv">${v?esc(cv):''}</span><svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></div></td>`}
   if(D.t==='pick'){const c=f==='rs'&&v?(r.sbg||RSCOL[KEY(v)]):null;return `<td class="${c?'fill':''}${k}" ${at} ${c?`style="--bg:${c};--fg:#000"`:''}><div class="c w-sm ctr"><span class="pv">${esc(v||'')}</span><svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg></div></td>`}
@@ -142,7 +143,7 @@ function renderStatus(){
   if(R&&multi(R)){
     const rows=list.slice(R.r0,R.r1+1),nc=R.c1-R.c0+1;left=`<span class="ref">${refOf(R)}</span><span><b>${rows.length*nc}</b> cells</span>`;
     if(R.c0===R.c1&&R.c0>0){const fc=cols()[R.c0-1],D=F[fc];
-      if(D.t==='pop'||D.t==='pick'){const cnt={};rows.forEach(x=>{if(D.only&&x.coach!==D.only)return;const v=WORD(canon(fc,get(x,fc)))||'Blank';cnt[v]=(cnt[v]||0)+1});left+=`<span><b>${esc(D.l)}</b></span><span class="sum">${Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span>${esc(k)} <b>${v}</b></span>`).join('')}</span>`}
+      if(D.t==='pop'||D.t==='pick'){const cnt={};rows.forEach(x=>{if(D.only&&x.coach==='Harsh')return;const v=WORD(canon(fc,get(x,fc)))||'Blank';cnt[v]=(cnt[v]||0)+1});left+=`<span><b>${esc(D.l)}</b></span><span class="sum">${Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span>${esc(k)} <b>${v}</b></span>`).join('')}</span>`}
       else if(D.t==='chk'){const y=rows.filter(x=>get(x,fc)===true).length;left+=`<span>Ticked <b>${y}</b></span><span>Not ticked <b>${rows.length-y}</b></span>`}
       else{const y=rows.filter(x=>get(x,fc)).length;left+=`<span>Filled <b>${y}</b></span><span>Empty <b>${rows.length-y}</b></span>`}}
     left+=`<span class="mut">⌘C copy · ⌘V paste · ⌘D fill down · Delete clears</span>`}
@@ -151,7 +152,7 @@ function renderStatus(){
   $('#sb').innerHTML=left+`<span class="r"><span>${list.length} rows</span><span>Saved for both coaches</span></span>`;
 }
 
-function itemsHTML(r,fs){return `<div class="kv">${fs.filter(f=>!(F[f].only&&r.coach!==F[f].only)).map(f=>{const D=F[f],v=get(r,f);let d;
+function itemsHTML(r,fs){return `<div class="kv">${fs.filter(f=>!(F[f].only&&r.coach==='Harsh')).map(f=>{const D=F[f],v=get(r,f);let d;
   if(D.t==='pop'){const cv=canon(f,v),c=v?colorOf(f,cv):null;d=v?(c?`<span class="tag" style="--bg:${c[0]};--fg:${c[1]}">${esc(cv)}</span>`:esc(cv)):'<span class="mut">—</span>'}
   else if(D.t==='chk')d=v===true?'Yes':'No';else if(D.t==='date')d=v?esc(fmtD(v)):'<span class="mut">Add</span>';else d=v?`<span class="txt">${esc(v)}</span>`:'<span class="mut">—</span>';
   const lg=D.t==='text'&&v&&String(v).length>40;return `<button class="it${lg?' long':''}" data-iid="${r.id}" data-if="${f}"><small>${D.l}</small><span class="v">${d}</span></button>`}).join('')}</div>`}
@@ -199,7 +200,7 @@ function pushBatch(label,items){if(items.some(i=>i.also&&i.also.length))relist()
 function toast(m,undo){const t=$('#toast');t.innerHTML=`<span>${esc(m)}</span>${undo?'<button id="tU">Undo</button>':''}`;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,4000);if(undo)$('#tU').onclick=()=>{undo();t.hidden=true}}
 function undoEntry(e){if(!e||e.undone)return;const all=[...ROWS,...EXPIRED];const back=(r,i)=>{(i.also||[]).slice().reverse().forEach(a=>setv(r,a.f,a.old));setv(r,i.f,i.old)};if(e.batch)e.items.forEach(i=>{const r=all.find(x=>x.id===i.id);if(r)back(r,i)});else{const r=all.find(x=>x.id===e.id);if(r)back(r,e)}relist();e.undone=true;save();try{logEvent({title:'Undid a change',detail:'Sheet'})}catch(_){}render();toast('Undone')}
 function undoLast(){const e=LOG.find(x=>!x.undone&&(!x.batch||x.items.length));if(e)undoEntry(e);else toast('Nothing to undo')}
-const editable=(r,f)=>f&&F[f].t!=='fill'&&!(F[f].only&&r.coach!==F[f].only);
+const editable=(r,f)=>f&&F[f].t!=='fill'&&!(F[f].only&&r.coach==='Harsh');
 
 /* parse a typed or pasted value for a column; returns {ok,v} */
 function parseFor(f,raw){const D=F[f],s=String(raw??'').replace(/\r/g,'').trim();
@@ -212,7 +213,7 @@ function parseFor(f,raw){const D=F[f],s=String(raw??'').replace(/\r/g,'').trim()
     const d=new Date(s);if(!isNaN(d))return {ok:true,v:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};return {ok:false}}
   return {ok:false};
 }
-function textOf(r,ci){if(ci===0)return r.name;const f=cols()[ci-1],D=F[f],v=get(r,f);if(D.only&&r.coach!==D.only)return '';if(D.t==='chk')return v===true?'TRUE':v===false?'FALSE':'';if(D.t==='pop')return canon(f,v);if(D.t==='date')return v||'';return v==null?'':String(v)}
+function textOf(r,ci){if(ci===0)return r.name;const f=cols()[ci-1],D=F[f],v=get(r,f);if(D.only&&r.coach==='Harsh')return '';if(D.t==='chk')return v===true?'TRUE':v===false?'FALSE':'';if(D.t==='pop')return canon(f,v);if(D.t==='date')return v||'';return v==null?'':String(v)}
 const tsvCell=s=>/[\t\n"]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
 function parseTSV(t){const rows=[];let row=[],cur='',q=false;t=t.replace(/\r\n?/g,'\n');for(let i=0;i<t.length;i++){const ch=t[i];
   if(q){if(ch==='"'){if(t[i+1]==='"'){cur+='"';i++}else q=false}else cur+=ch}
@@ -293,7 +294,7 @@ function dlg(h){$('#dlg').innerHTML=h;$('#scrim').hidden=false}
 function reactDlg(id){const r=EXPIRED.find(x=>x.id===id);if(!r)return;const st=/^\d{4}-/.test(r.start||'')?r.start:'';
   dlg(`<div class="dh"><h2>Move ${esc(r.name)} back</h2><p>Reactivate from Expired and hold</p></div><div class="db">
     <div class="note">Goes back to <b>All Dates List</b> as <b>Yet to start</b>${st?` with start date <b>${esc(fmtD(st))}</b> (end ${esc(fmtD(r.em&&r.end?r.end:isoAdd(st,90)))})`:' with no start date yet'}.<br><b>Check-in:</b> ${r.hist?'form to be set':'same form ('+esc(WORD(r.form)||'not set')+')'}, status Marked Closed.<br><b>Progress:</b> client status Marked Closed${r.hist?'; your old notes go into Weekly Notes':'; deficit/surplus, refeed/diet break and weekly notes come back from their history'}.</div>
-    ${r.hist&&!r.coach?`<label>Coach<select id="rCoach"><option>Harsh</option><option>Shrutika</option></select></label>`:''}</div>
+    ${r.hist&&!r.coach?`<label>Coach<select id="rCoach">${coachList().map(n=>`<option>${esc(n)}</option>`).join('')}</select></label>`:''}</div>
     <div class="df"><button class="btn" data-dclose>Cancel</button><button class="btn p" id="doReact" data-id="${esc(r.id)}">Move back</button></div>`)}
 function doReact(id){const r=EXPIRED.find(x=>x.id===id);if(!r)return;let label=`Reactivated ${r.name}`,items=[];
   if(!r.hist){const e=change(r,'rs','Yet to start',true);if(e)items.push(e)}
@@ -312,7 +313,7 @@ function doWeek(){const items=[];const WR=ROWS.filter(r=>CO()==='all'||r.coach==
 function saturday(){const today=new Date().toISOString().slice(0,10);const due=ROWS.filter(r=>(CO()==='all'||r.coach===CO())&&r.end&&r.end<today&&r.rs==='Active');
   dlg(`<div class="dh"><h2>Saturday refresh</h2><p>Active clients whose end date has passed</p></div><div class="db">${due.length?`<div class="note">Ticked clients move to Expired and hold. Their notes go with them and you can restore anyone.</div><div>${due.map(r=>`<label class="li"><input type="checkbox" checked data-exp="${r.id}"><span>${esc(r.name)}<small>Coach ${r.coach} · ended ${esc(fmtD(r.end))}</small></span></label>`).join('')}</div>`:'<div class="note">Nobody to move. Every active client still has time left.</div>'}</div><div class="df"><button class="btn" data-dclose>Cancel</button>${due.length?'<button class="btn p" id="doSat">Move to Expired</button>':''}</div>`)}
 function doSat(){const ids=[...XR.querySelectorAll('[data-exp]:checked')].map(x=>x.dataset.exp);const items=[];MOVEX=true;try{ids.forEach(id=>{const r=ROWS.find(r=>r.id===id);if(r){const was=r.rs;if(was==='Expired')r.rs='Active';const e=change(r,'rs','Expired',true);if(e){e.old=was;items.push(e)}}})}finally{MOVEX=false}pushBatch(`Moved ${ids.length} clients to Expired`,items);dclose();SEL=null;ANC=null;render();toast(`${ids.length} moved to Expired and hold`)}
-function addClient(){dlg(`<div class="dh"><h2>Add client</h2><p>Creates their row on every sheet</p></div><div class="db"><label>Full name<input id="nName" placeholder="e.g. Riya Sharma"></label><label>Coach<select id="nCoach"><option>Harsh</option><option>Shrutika</option></select></label><label>Start date<input id="nStart" type="date"></label><label>Form / Program<select id="nForm">${OPT.form.map(o=>`<option>${esc(o)}</option>`).join('')}</select></label><div class="note">End date is set to 90 days after the start date. Brain then fills their profile from their onboarding Typeform.</div></div><div class="df"><button class="btn" data-dclose>Cancel</button><button class="btn p" id="doAdd">Add</button></div>`);setTimeout(()=>$('#nName').focus(),30)}
+function addClient(){dlg(`<div class="dh"><h2>Add client</h2><p>Creates their row on every sheet</p></div><div class="db"><label>Full name<input id="nName" placeholder="e.g. Riya Sharma"></label><label>Coach<select id="nCoach">${coachList().map(n=>`<option ${n===CSEL?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label>Start date<input id="nStart" type="date"></label><label>Form / Program<select id="nForm">${OPT.form.map(o=>`<option>${esc(o)}</option>`).join('')}</select></label><div class="note">End date is set to 90 days after the start date. Brain then fills their profile from their onboarding Typeform.</div></div><div class="df"><button class="btn" data-dclose>Cancel</button><button class="btn p" id="doAdd">Add</button></div>`);setTimeout(()=>$('#nName').focus(),30)}
 function doAdd(){const name=$('#nName').value.trim().replace(/\s+/g,' ');if(!name){$('#nName').placeholder='Enter a name first';$('#nName').focus();return}if(ROWS.some(r=>r.name.toLowerCase()===name.toLowerCase())){toast(name+' is already on the sheet');return}const start=$('#nStart').value,end=start?isoAdd(start,90):'';
   const nid='n-'+Date.now();const nr={id:nid,name,coach:$('#nCoach').value,rs:start?'Active':'Yet to start',start,end,form:$('#nForm').value,wo:'',app:false,cf:false,rem:'TBD',st:'TBD',act:'TBD',note:'',cs:'TBD',wn:'',rf:'',ds:'',w:Array(12).fill(''),archived:false};addClientDoc(nr);ROWS.unshift(nr);DIRTY.add(nr);
   const ae={t:Date.now(),batch:true,label:`Added ${name}`,items:[]};LOG.unshift(ae);save();feedLog(ae);dclose();TAB='checkin';CSEL=nr.coach;Q='';$('#q').value='';refreshRows();const ix=visible().findIndex(r=>r.id===nid);select(Math.max(0,ix),0);if(window.BRAIN)setTimeout(()=>BRAIN.auto('New client added to the sheet: '+name+'. Find their onboarding Typeform and fill in their full profile.'),400);toast(`${name} added on row 1`)}

@@ -169,7 +169,7 @@ let F={view:'all',coach:'all',q:'',tag:null,st:null,act:null,exp:false};let FM='
 const ST_ORDER=['masterreview','mastercall','callneeded','reviewneeded','audioreview','calllinksent','callbooked','datadue','sameweekrepeat','onlycalllink','recheckin','noshow','skip','markedclosed','onhold','tbd'];
 const ACT_ORDER=['audioreview','keepaneye','generalcall','supportcall','accountabilitycall','commitmentweek','finalcall','ontrack','supportneeded','mastersupport','dailycheckins','mealpictures','movingslow','recheckin','flagged','redalert'];
 function renderCoachSeg(){const n=k=>CLIENTS.filter(c=>k==='all'||c.coach===k).length;
-  $('#coachSeg').innerHTML=[['all','All'],['Harsh','Harsh'],['Shrutika','Shrutika']].map(([k,l])=>`<button data-pc="${k}" aria-pressed="${F.coach===k}">${l}<em>${n(k)}</em></button>`).join('')}
+  $('#coachSeg').innerHTML=[['all','All'],...(window.TTL_STORE&&TTL_STORE.coaches?TTL_STORE.coaches():['Harsh','Shrutika']).map(x=>[x,x])].map(([k,l])=>`<button data-pc="${k}" aria-pressed="${F.coach===k}">${l}<em>${n(k)}</em></button>`).join('')}
 function render(){
   renderCoachSeg();
   let list=(F.exp?XCL:CLIENTS).filter(c=>{
@@ -194,7 +194,7 @@ function render(){
     const sig=[];const ca=c.sheet.ciAction;if(ca)sig.push({label:ca,tone:/red alert|flagged|master support|accountability|commitment|final call/i.test(ca)?'red':/on track|audio review/i.test(ca)?'green':'amber'});if(needsReply(c))sig.push({label:'Needs reply',tone:'red'});tagsOf(c).filter(t=>t.id!=='renew').forEach(t=>sig.push(t));
     const more=sig.length-(ca?1:0);
     return head+`<button class="tile tl" data-id="${c.id}">
-      <div class="tl-top"><strong class="tl-name">${esc(c.name)}${c.demo?' <span class="demo">Demo</span>':''}</strong><span class="tl-coach">${c.coach==='Shrutika'?'S':'H'}</span></div>
+      <div class="tl-top"><strong class="tl-name">${esc(c.name)}${c.demo?' <span class="demo">Demo</span>':''}</strong><span class="tl-coach">${esc((c.coach||'?')[0])}</span></div>
       <div class="tl-pills">${c.expired?`<span class="spill" style="--c:#C0392B"><i></i>Expired${c.expiredAt?' '+esc(fmtD(new Date(c.expiredAt))):''}</span>`:''}${c.expired?'':sPill(c.comp,'st')}${ca&&SKEY(ca)!=='tbd'?sPill(ca,'act',c.coach):''}${c.sheet.support?`<span class="spill sup"><i></i>${esc(c.sheet.support)}</span>`:''}${more>0?`<span class="tl-more">+${more}</span>`:''}</div>${ladderMark(c)}</button>`;
   }).join(''):`<div class="empty">${LOADED?(CLIENTS.length?"No clients match this view.":"No clients yet. The first sync fills this page."):"Loading clients…"}</div>`;
   renderTagChips();
@@ -515,7 +515,7 @@ function paint(){
   const tabs=[['overview','Profile'],['notes','Coach notes'],['checkins','Check-ins'],['onboarding','Onboarding']];
   $('#sheet').innerHTML=`<div class="s-head"><div class="s-head-in">
     <button class="close back" aria-label="Back to all clients"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>All clients</button>
-    <div class="s-row"><span class="av ${c.coach==='Shrutika'?'s':''}">${initials(c.name)}</span>
+    <div class="s-row"><span class="av ${c.coach!=='Harsh'?'s':''}">${initials(c.name)}</span>
       <div class="s-title"><h2 id="p-name">${esc(c.name)}${c.demo?' <span class="demo">Demo</span>':''}</h2>
       <div class="s-meta"><label class="phchip gsel" title="${c.pset?'Phase set by coach':'Phase from forms · tap to change'}"><span class="sr">Phase</span><select id="phSel">${Array.from({length:10},(_,i)=>`<option value="${i+1}" ${i+1===c.pnum?'selected':''}>Phase ${i+1}</option>`).join('')}</select><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></label><span>${esc(c.prog)}</span><span>${esc(c.phase)}</span>${c.coach?`<span>Coach ${c.coach}</span>`:''}${c.week?`<span>Week ${c.week}${c.week<=12?' of 12':''}</span>`:''}</div>
       <div class="hp"><label class="cap gsel ${gcls(c.g)}" title="Change goal"><span class="sr">Goal</span><select id="goalSel">${GOAL_LIST.map(g=>`<option ${g===c.g?'selected':''}>${g}</option>`).join('')}${GOAL_LIST.includes(c.g)?'':'<option selected disabled>Goal not set</option>'}</select><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></label>${sPill(c.comp,'st')}${c.sheet.ciAction&&SKEY(c.sheet.ciAction)!=='tbd'?sPill(c.sheet.ciAction,'act',c.coach):''}</div>

@@ -32,6 +32,7 @@ home.innerHTML=`<div class="th-wrap">
     <button class="th-tile" type="button" data-go="dashboard"><span class="th-ic th-emo" aria-hidden="true">📅</span><b>Dashboard</b><span class="th-d">Your day at a glance</span></button>
     <button class="th-tile" type="button" data-go="portal"><span class="th-ic th-emo" aria-hidden="true">🚀</span><b>Portal</b><span class="th-d" id="thCount">Clients and profiles</span></button>
   </nav>
+  <section class="th-team" id="thTeam" aria-label="Team"></section>
   <p class="th-foot">Using as <b>${esc(WHO)}</b> · <button type="button" class="linkbtn" id="thSwitch">Switch</button> · <button type="button" class="linkbtn" id="thOut">Log out</button></p>
 </div>`;
 app.appendChild(home);
@@ -75,10 +76,14 @@ if(SAMPLE&&!window.TTL_TASKS){
   const at=(d,h,m,min)=>{const s=new Date();s.setDate(s.getDate()+d);s.setHours(h,m,0,0);return{start:s,end:new Date(s.getTime()+min*6e4)}},C=(d,h,m,min,kind,i)=>Object.assign(at(d,h,m,min),{kind,client:names()[i%Math.max(names().length,1)]||'Client'});
   window.TTL_CALLS={list:async()=>[C(0,9,30,30,'Check-in call',0),C(0,11,0,45,'Master check-in',1),C(0,13,0,30,'Renewal call',2),C(0,16,0,30,'Check-in call',3),C(0,17,30,45,'Goal-setting call',4),
     C(2,10,0,30,'Check-in call',5),C(2,15,0,45,'Master check-in',6),C(3,11,0,45,'Goal-setting call',7),C(4,9,0,30,'Check-in call',0),C(5,12,0,45,'Master check-in',1)]};
+  const P=(name,stage,coach,payment)=>({name,stage,coach,payment});
+  window.TTL_PIPE={onboarding:async()=>[P('Sample Client A','OB Call Booked','Harsh','Complete'),P('Sample Client B','Awaiting Submission Data','Shrutika','Invoice Due'),P('Sample Client C','Plan built','Harsh','Complete'),P('Sample Client D','Ready to Deliver','Shrutika','Complete')],
+    renewal:async()=>[P('Sample Client E','Questionnaire Sent','Harsh','Payment Due'),P('Sample Client F','Goal setting call due','Shrutika','Complete'),P('Sample Client G','Loom Due','Harsh','Complete')]};
 }
 async function loadFeeds(){
   try{if(window.TTL_TASKS){TASKS=await TTL_TASKS.list(VIEW);SYNCED=new Date()}}catch(_){TASKS=null}
   try{if(window.TTL_CALLS)CALLS=(await TTL_CALLS.list(new Date(),7,VIEW)).map(c=>Object.assign({},c,{start:new Date(c.start),end:new Date(c.end)})).sort((a,b)=>a.start-b.start)}catch(_){CALLS=null}
+  for(const k of ['onboarding','renewal']){try{PIPE[k]=window.TTL_PIPE?await TTL_PIPE[k](VIEW):null}catch(_){PIPE[k]=null}}
   renderDash();
 }
 // A Notion task is one line: "Client – what to do". If a separate client comes through, it goes in front, never underneath.
@@ -176,6 +181,40 @@ function timerHTML(){const ms=tmMs(),st=TM.run?'Running':ms?'Paused':'Ready';
     <div class="tm-btns"><button type="button" data-timer="start" ${TM.run?'disabled':''} aria-label="Start">${svg('<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>',16)}<span>${ms&&!TM.run?'Resume':'Start'}</span></button>
       <button type="button" data-timer="pause" ${TM.run?'':'disabled'} aria-label="Pause">${svg('<path d="M8 5v14M16 5v14"/>',16)}<span>Pause</span></button>
       <button type="button" data-timer="stop" ${ms?'':'disabled'} aria-label="Stop and reset">${svg('<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',16)}<span>Stop</span></button></div></section>`}
+/* Team note: one sticky note everyone sees. Saved a moment after typing stops; other screens pick it up within a few seconds. */
+let SN_T=0,SN_DIRTY=0;
+const snWhen=n=>n&&n.at?`${esc(n.by||'')} · ${new Date(n.at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}`:'Nobody has written here yet';
+function noteHTML(){const n=window.TTL_STORE&&TTL_STORE.note?TTL_STORE.note():null;
+  return `<section class="td-card td-note"><span class="sn-pin" aria-hidden="true">📌</span><div class="sn-top"><b>Team note</b><span class="td-live"><i></i>Live</span></div>
+    <textarea id="snTx" class="sn-tx" spellcheck="true" placeholder="Write something for the team…" aria-label="Team note">${n?esc(n.t):''}</textarea>
+    <div class="sn-by" id="snBy">${n&&n.t?'Last edit: ':''}${snWhen(n&&n.t?n:null)}</div></section>`}
+dash.addEventListener('input',e=>{if(e.target.id!=='snTx')return;SN_DIRTY=Date.now();clearTimeout(SN_T);const v=e.target.value;
+  SN_T=setTimeout(()=>{TTL_STORE.setNote(v).then(()=>{const b=dash.querySelector('#snBy');if(b)b.textContent=(v?'Last edit: ':'')+snWhen(v?TTL_STORE.note():null).replace(/&amp;/g,'&')}).catch(()=>toast('Could not save the note. Check your connection.'))},650)});
+dash.addEventListener('focusout',e=>{if(e.target.id==='snTx')setTimeout(renderDash,0)});
+setInterval(async()=>{if(dash.hidden||!window.TTL_STORE||!TTL_STORE.refreshNote||Date.now()-SN_DIRTY<4000)return;const tx=dash.querySelector('#snTx');if(!tx)return;
+  const before=TTL_STORE.note(),n=await TTL_STORE.refreshNote().catch(()=>null);if(!n||Date.now()-SN_DIRTY<4000||(before&&before.at===n.at))return;
+  if(tx.value!==n.t){const f=document.activeElement===tx,p=tx.selectionStart;tx.value=n.t;if(f)tx.setSelectionRange(Math.min(p,n.t.length),Math.min(p,n.t.length));tx.classList.remove('flash');void tx.offsetWidth;tx.classList.add('flash')}
+  const b=dash.querySelector('#snBy');if(b)b.textContent=(n.t?'Last edit: ':'')+snWhen(n.t?n:null).replace(/&amp;/g,'&')},5000);
+
+/* Expiring soon: the business rule is the check-in form, not the calendar. A client is ready for renewal once their weekly check-in form reaches week 10. */
+const ciWeek=c=>Math.max(0,...ckOf(c).map(k=>+k.n||0));
+function expiringHTML(){const from=(typeof RULES!=='undefined'&&RULES.renewFrom)||10,pool=IS_OWNER&&!TEAM_ON()?CLIENTS:CLIENTS.filter(c=>c.coach===VIEW);
+  const rows=pool.map(c=>({c,w:ciWeek(c)})).filter(x=>x.w>=from).sort((a,b)=>b.w-a.w||a.c.name.localeCompare(b.c.name));
+  const any=CLIENTS.some(c=>ciWeek(c)>0);
+  return `<section class="td-card td-expg"><div class="td-h"><h2>Expiring soon <em>${rows.length}</em></h2></div>
+    <p class="td-sub">Clients whose check-in form has reached week ${from} or later.</p>
+    ${rows.length?`<div class="td-scroll td-ltwrap"><div class="td-lt"><div class="td-ltr td-lth"><span>Name</span><span>Check-in week</span><span>Coach</span></div>${rows.map(x=>`<button type="button" class="td-ltr" data-open="${x.c.id}"><span class="td-ltn"><span class="td-ini">${ini(x.c)}</span><b>${esc(x.c.name)}</b></span><span><i class="td-lv wk${Math.min(12,x.w)}">Week ${x.w}</i></span><span class="td-ltc">${esc(x.c.coach)}</span></button>`).join('')}</div></div>`
+      :`<p class="td-empty">${any?'Nobody has reached week '+from+' yet.':'Fills in once the weekly Typeform check-ins are connected. Nothing is worked out from dates.'}</p>`}</section>`}
+
+/* Onboarding and Next phase: the two Notion client boards. They fill once the Notion connection is switched on (window.TTL_PIPE). */
+let PIPE={onboarding:null,renewal:null};
+const PIPE_DEF={onboarding:['Onboarding','New clients moving through setup','Onboarding’s board in Notion'],renewal:['Next phase','Renewals moving through the next-phase steps','The Next Phase / Accelerator board in Notion']};
+function pipeHTML(k){const [title,sub,src]=PIPE_DEF[k],rows=PIPE[k];
+  if(!window.TTL_PIPE||!rows)return `<section class="td-card td-soon"><div class="td-h"><h2>${title}</h2><span class="td-tag">Connecting next</span></div><p>${sub}. Comes live from ${src}.</p></section>`;
+  const open=rows.filter(r=>!/closed/i.test(r.stage||''));
+  return `<section class="td-card td-pipe"><div class="td-h"><h2>${title} <em>${open.length}</em></h2>${syncLine()}</div><p class="td-sub">${sub}</p>
+    ${open.length?`<div class="td-scroll td-ltwrap"><div class="td-lt"><div class="td-ltr td-lth"><span>Name</span><span>Stage</span><span>Coach</span></div>${open.map(r=>`<div class="td-ltr"><span class="td-ltn"><b>${esc(r.name)}</b></span><span><i class="td-lv st">${esc(r.stage||'Not started')}</i>${r.payment&&r.payment!=='Complete'?`<em>${esc(r.payment)}</em>`:''}</span><span class="td-ltc">${esc(r.coach||'')}</span></div>`).join('')}</div></div>`:'<p class="td-empty">Nothing open right now.</p>'}</section>`}
+
 function needsHTML(){const {needs}=dashData();
   return `<section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
       <p class="td-sub">Master reviews, calls and reviews waiting on ${TEAM_ON()?esc(VIEW):'you'}. Tap a name for details.</p>
@@ -187,10 +226,10 @@ function watchHTML(){const {tagged}=dashData();
   </section>`}
 
 /* ---------- Widgets: a 12-column grid each coach can rearrange and resize (wide screens). Saved on this device, per coach. ---------- */
-const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),timer:()=>timerHTML(),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
-const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',timer:'Timer',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
-const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['timer',2,3],['calls',4,5],['needs',6,5],['watch',12,4]];
-const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],timer:[2,3],calls:[3,4],needs:[3,3],watch:[4,3]};
+const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),timer:()=>timerHTML(),note:()=>noteHTML(),expiring:()=>expiringHTML(),onboarding:()=>pipeHTML('onboarding'),renewal:()=>pipeHTML('renewal'),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
+const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',timer:'Timer',note:'Team note',expiring:'Expiring soon',onboarding:'Onboarding',renewal:'Next phase',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
+const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['timer',2,4],['note',3,4],['calls',3,4],['needs',4,4],['expiring',4,5],['onboarding',4,5],['renewal',4,5],['watch',12,4]];
+const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],timer:[2,3],note:[2,3],expiring:[3,3],onboarding:[3,3],renewal:[3,3],calls:[3,4],needs:[3,3],watch:[4,3]};
 const W_ROW=56,W_GAP=16,LKEY='ttl-dash-layout-v1-'+WHO;
 const defLay=()=>W_DEF.map(([id,w,h])=>({id,w,h}));
 function loadLay(){try{const s=JSON.parse(localStorage.getItem(LKEY)||'null');if(Array.isArray(s)){const ok=s.filter(x=>W_HTML[x.id]&&x.w>0&&x.h>0);defLay().forEach(d=>{if(!ok.find(x=>x.id===d.id))ok.push(d)});return ok}}catch(_){}return defLay()}
@@ -202,6 +241,7 @@ function flip(grid,change,skip){const els=[...grid.children],a=new Map(els.map(e
   els.forEach(el=>{if(el===skip)return;const o=a.get(el),b=el.getBoundingClientRect(),dx=o.left-b.left,dy=o.top-b.top;if(dx||dy)el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:280,easing:'cubic-bezier(.2,.8,.2,1)'})})}
 function renderDash(){
   if(dash.hidden||DRAGW)return;
+  if(document.activeElement&&document.activeElement.id==='snTx'&&!POPNEW)return; // never redraw under someone typing in the team note
   const keep=[...dash.querySelectorAll('[data-keep]')].map(e=>[e.dataset.keep,e.scrollTop]);
   dash.innerHTML=`<div class="td-wrap">
   <button type="button" class="td-back" data-go="home">${svg(I.back,14)}Home</button>
@@ -261,13 +301,26 @@ dash.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&POP&&!dash.hidden)closePop()});
 
+/* ---------- Home: the team, and adding a teammate (head coach only) ---------- */
+let ADDT=false;
+function renderTeam(){const el=document.getElementById('thTeam');if(!el)return;const list=TTL_STORE.coaches?TTL_STORE.coaches():[OWNER];
+  el.innerHTML=`<div class="tt-h"><h2>Team</h2>${IS_OWNER&&!ADDT?'<button type="button" class="tt-add" id="ttAdd">+ Add teammate</button>':''}</div>
+    <div class="tt-list">${list.map(n=>`<div class="tt-p${n===WHO?' me':''}"><span class="td-ini">${esc(n[0])}</span><span><b>${esc(n)}</b><em>${n===OWNER?'Head coach':'Coach'} · ${CLIENTS.filter(c=>c.coach===n).length} clients</em></span></div>`).join('')}</div>
+    ${ADDT?`<form class="tt-form" id="ttForm"><label for="ttName">Teammate's first name</label><div><input id="ttName" autocomplete="off" maxlength="24" placeholder="e.g. Aditi"><button type="submit" class="tt-ok">Add</button><button type="button" class="tt-no" id="ttNo">Cancel</button></div>
+      <p>They get the same set-up as ${esc(list.find(n=>n!==OWNER)||'the other coaches')}: their own Check-in and Progress sheets, their own Dashboard, and their name in every coach list. They log in with the shared portal login and pick their name.</p></form>`:''}`}
+home.addEventListener('click',e=>{if(e.target.id==='ttAdd'){ADDT=true;renderTeam();document.getElementById('ttName').focus()}else if(e.target.id==='ttNo'){ADDT=false;renderTeam()}});
+home.addEventListener('submit',e=>{if(e.target.id!=='ttForm')return;e.preventDefault();const raw=document.getElementById('ttName').value.trim().replace(/\s+/g,' ');if(!raw)return;
+  const name=raw[0].toUpperCase()+raw.slice(1);if(!/^[A-Za-z][A-Za-z .'-]{1,23}$/.test(name)){toast('Use letters only for the name.');return}
+  if(TTL_STORE.coaches().some(n=>n.toLowerCase()===name.toLowerCase())){toast(name+' is already on the team.');return}
+  TTL_STORE.addCoach(name).then(()=>toast(name+' added. They can now pick their name when they log in.')).catch(()=>toast('Could not add the teammate. Check your connection.'));ADDT=false;renderTeam();if(window.XS)XS.refresh()});
+
 /* ---------- Routing: #home, #portal, #dashboard, #sheet ---------- */
 let FROM='home';
 function show(r){
   if(r==='sheet'){if(!XOPEN)XS.open();return}
   if(XOPEN)XS.close();
   home.hidden=r!=='home';dash.hidden=r!=='dashboard';wrap.style.display=r==='portal'?'':'none';
-  if(r==='home'){document.getElementById('thDate').textContent=today();document.getElementById('thHi').textContent=greet()+', '+WHO;document.getElementById('thCount').textContent=mine().length+' of your clients · '+CLIENTS.length+' in total'}
+  if(r==='home'){document.getElementById('thDate').textContent=today();document.getElementById('thHi').textContent=greet()+', '+WHO;document.getElementById('thCount').textContent=mine().length+' of your clients · '+CLIENTS.length+' in total';renderTeam()}
   if(r==='dashboard'){renderDash();loadFeeds()}
   if(r!=='sheet')FROM=r;
   window.scrollTo(0,0);

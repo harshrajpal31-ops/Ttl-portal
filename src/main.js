@@ -24,10 +24,15 @@ function loginScreen() {
   };
 }
 
-function whoScreen() {
+async function whoScreen() {
+  // Teammates added from Home are kept in settings; everyone on that list can pick their name here.
+  let team = [];
+  try { const { data } = await db.from('settings').select('value').eq('key', 'coaches').maybeSingle(); if (data && Array.isArray(data.value)) team = data.value; } catch (_) {}
+  const names = [...new Set(['Harsh', 'Shrutika', ...team])];
+  const safe = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   app.innerHTML = shell(`
     <h1>Who's using the portal?</h1><p class="muted">Your changes are logged under this name. You can switch it later.</p>
-    <button data-w="Harsh">Harsh</button><button class="ghost" data-w="Shrutika">Shrutika</button>`);
+    ${names.map((n, i) => `<button ${i ? 'class="ghost" ' : ''}data-w="${safe(n)}">${safe(n)}</button>`).join('')}`);
   app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(b.dataset.w); render(); });
 }
 
@@ -80,5 +85,6 @@ async function render() {
   portal();
 }
 
-db.auth.onAuthStateChange(() => render());
+// Deferred on purpose: Supabase waits for this callback, and render() itself asks Supabase for data, so running it inline would lock up.
+db.auth.onAuthStateChange(() => { setTimeout(render, 0); });
 render();

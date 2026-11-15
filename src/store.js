@@ -37,7 +37,7 @@ async function must(q) {
 }
 
 export function createStore(who) {
-  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {} };
+  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {}, note: null, team: [] };
   const L = {}; // listeners by key: 'clients', 'edits', 'feed', 'meta/sync', 'settings/rules', 'edits/<id>', 'feed/<day>'
   const savedFeed = new Set(); // feed item timestamps already in change_log
 
@@ -116,6 +116,8 @@ export function createStore(who) {
 
     // Cell comments on the Sheet: one settings row per client, key 'comment:<client id>', value { field: { t, by, at } }.
     S.comments = Object.fromEntries(settings.filter(x => x.key.startsWith('comment:')).map(x => [x.key.slice(8), x.value || {}]));
+    S.note = (settings.find(x => x.key === 'team_note') || {}).value || null;       // shared sticky note { t, by, at }
+    S.team = (settings.find(x => x.key === 'coaches') || {}).value || []; if (!Array.isArray(S.team)) S.team = [];             // teammates added from Home
     const tr = (settings.find(x => x.key === 'tag_rules') || {}).value;
     S.rules = tr ? Object.fromEntries(Object.entries(RULE_KEYS).filter(([, k]) => tr[k] != null).map(([d, k]) => [d, +tr[k]])) : undefined;
   }
@@ -291,6 +293,27 @@ export function createStore(who) {
     return Promise.all(jobs);
   }
 
+  // ---- team: the shared sticky note and the list of coaches ----
+  function setNote(text) {
+    S.note = { t: text, by: who, at: new Date().toISOString() };
+    const value = S.note;
+    return enqueue(() => must(db.from('settings').upsert({ key: 'team_note', value })));
+  }
+  async function refreshNote() {
+    const { data, error } = await db.from('settings').select('value').eq('key', 'team_note').maybeSingle();
+    if (!error && data && data.value && (!S.note || (data.value.at || '') > (S.note.at || ''))) S.note = data.value;
+    return S.note;
+  }
+  const coaches = () => {
+    const all = [...new Set(['Harsh', 'Shrutika', ...S.team, ...Object.values(S.rows).map(r => r.client.coach)].filter(Boolean))];
+    return all.sort((a, b) => (a === 'Harsh' ? -1 : b === 'Harsh' ? 1 : 0));
+  };
+  function addCoach(name) {
+    S.team = [...new Set([...S.team, name])];
+    const value = S.team;
+    return enqueue(() => must(db.from('settings').upsert({ key: 'coaches', value })));
+  }
+
   async function writeHist(id, s, name) {
     const patch = { rs: s.rs || '', start: String(s.start ?? ''), end: String(s.end ?? '') };
     if (s.xn) patch.x = Array.from({ length: 16 }, (_, i) => s.xn[i] || '');
@@ -377,6 +400,11 @@ export function createStore(who) {
     comment: (id, f) => (S.comments[id] || {})[f] || null,
     setComment,
     clearComments,
+    note: () => S.note,
+    setNote,
+    refreshNote,
+    coaches,
+    addCoach,
     addClient,
     // Stand-in for the Sheet (window.XS) until step 4: only the calorie sync from the profile uses it.
     sheetApply(items) {
