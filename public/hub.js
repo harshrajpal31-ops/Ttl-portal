@@ -98,8 +98,8 @@ function tasksInner(){
 }
 const syncLine=()=>`<span class="td-sync"><i></i>${SAMPLE?'Sample tasks for testing, not from Notion':'Synced with Notion'+(SYNCED?' at '+tFmt(SYNCED):'')}</span>`;
 function tasksHTML(){
-  if(!window.TTL_TASKS||!TASKS)return `<section class="td-card td-soon"><div class="td-h"><h2>${svg(I.tasks,18)} My tasks</h2><span class="td-tag">Connecting next</span></div><p>Your Notion tasks will show here, live: tick them done here and they update in Notion.</p></section>`;
-  return `<section class="td-card td-tasks" data-pop="tasks"><div class="td-h td-th"><div class="td-tl"><h2>${svg(I.tasks,18)} ${esc(whose())} tasks</h2>${syncLine()}</div>${expandBtn('tasks','tasks')}</div>
+  if(!window.TTL_TASKS||!TASKS)return `<section class="td-card td-soon"><div class="td-h"><h2><span class="nt-emo">✅</span>Daily Tasks</h2><span class="td-tag">Connecting next</span></div><p>Your Notion tasks will show here, live: tick them done here and they update in Notion.</p></section>`;
+  return `<section class="td-card td-tasks" data-pop="tasks"><div class="td-h td-th"><div class="td-tl"><h2><span class="nt-emo">✅</span>Daily Tasks${TEAM_ON()?' · '+esc(VIEW):''}</h2>${syncLine()}</div>${expandBtn('tasks','tasks')}</div>
     ${tasksInner()}<button type="button" class="td-new">+ New task</button></section>`;
 }
 function callRow(c,big){const k=CALL_KIND[c.kind]||['ci',c.kind||'Call'];
@@ -181,39 +181,32 @@ function timerHTML(){const ms=tmMs(),st=TM.run?'Running':ms?'Paused':'Ready';
     <div class="tm-btns"><button type="button" data-timer="start" ${TM.run?'disabled':''} aria-label="Start">${svg('<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>',16)}<span>${ms&&!TM.run?'Resume':'Start'}</span></button>
       <button type="button" data-timer="pause" ${TM.run?'':'disabled'} aria-label="Pause">${svg('<path d="M8 5v14M16 5v14"/>',16)}<span>Pause</span></button>
       <button type="button" data-timer="stop" ${ms?'':'disabled'} aria-label="Stop and reset">${svg('<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>',16)}<span>Stop</span></button></div></section>`}
-/* Team note: one sticky note everyone sees. Saved a moment after typing stops; other screens pick it up within a few seconds. */
-let SN_T=0,SN_DIRTY=0;
-const snWhen=n=>n&&n.at?`${esc(n.by||'')} · ${new Date(n.at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}`:'Nobody has written here yet';
-function noteHTML(){const n=window.TTL_STORE&&TTL_STORE.note?TTL_STORE.note():null;
-  return `<section class="td-card td-note"><span class="sn-pin" aria-hidden="true">📌</span><div class="sn-top"><b>Team note</b><span class="td-live"><i></i>Live</span></div>
-    <textarea id="snTx" class="sn-tx" spellcheck="true" placeholder="Write something for the team…" aria-label="Team note">${n?esc(n.t):''}</textarea>
-    <div class="sn-by" id="snBy">${n&&n.t?'Last edit: ':''}${snWhen(n&&n.t?n:null)}</div></section>`}
-dash.addEventListener('input',e=>{if(e.target.id!=='snTx')return;SN_DIRTY=Date.now();clearTimeout(SN_T);const v=e.target.value;
-  SN_T=setTimeout(()=>{TTL_STORE.setNote(v).then(()=>{const b=dash.querySelector('#snBy');if(b)b.textContent=(v?'Last edit: ':'')+snWhen(v?TTL_STORE.note():null).replace(/&amp;/g,'&')}).catch(()=>toast('Could not save the note. Check your connection.'))},650)});
-dash.addEventListener('focusout',e=>{if(e.target.id==='snTx')setTimeout(renderDash,0)});
-setInterval(async()=>{if(dash.hidden||!window.TTL_STORE||!TTL_STORE.refreshNote||Date.now()-SN_DIRTY<4000)return;const tx=dash.querySelector('#snTx');if(!tx)return;
-  const before=TTL_STORE.note(),n=await TTL_STORE.refreshNote().catch(()=>null);if(!n||Date.now()-SN_DIRTY<4000||(before&&before.at===n.at))return;
-  if(tx.value!==n.t){const f=document.activeElement===tx,p=tx.selectionStart;tx.value=n.t;if(f)tx.setSelectionRange(Math.min(p,n.t.length),Math.min(p,n.t.length));tx.classList.remove('flash');void tx.offsetWidth;tx.classList.add('flash')}
-  const b=dash.querySelector('#snBy');if(b)b.textContent=(n.t?'Last edit: ':'')+snWhen(n.t?n:null).replace(/&amp;/g,'&')},5000);
-
 /* Expiring soon: the business rule is the check-in form, not the calendar. A client is ready for renewal once their weekly check-in form reaches week 10. */
 const ciWeek=c=>Math.max(0,...ckOf(c).map(k=>+k.n||0));
 function expiringHTML(){const from=(typeof RULES!=='undefined'&&RULES.renewFrom)||10,pool=IS_OWNER&&!TEAM_ON()?CLIENTS:CLIENTS.filter(c=>c.coach===VIEW);
   const rows=pool.map(c=>({c,w:ciWeek(c)})).filter(x=>x.w>=from).sort((a,b)=>b.w-a.w||a.c.name.localeCompare(b.c.name));
-  const any=CLIENTS.some(c=>ciWeek(c)>0);
-  return `<section class="td-card td-expg"><div class="td-h"><h2>Expiring soon <em>${rows.length}</em></h2></div>
-    <p class="td-sub">Clients whose check-in form has reached week ${from} or later.</p>
+  const any=CLIENTS.some(c=>ciWeek(c)>0);let demo=false;
+  if(SAMPLE&&!any){demo=true;[12,12,11,11,10,10,10].forEach((w,i)=>{if(pool[i*3])rows.push({c:pool[i*3],w})})} // test link only: made-up weeks so the tile can be seen filled
+  return `<section class="td-card td-expg"><div class="td-h"><h2>⏳ Expiring soon <em>${rows.length}</em></h2></div>
+    <p class="td-sub">Clients whose check-in form has reached week ${from} or later.${demo?' <b class="td-demo">Sample weeks for this demo</b>':''}</p>
     ${rows.length?`<div class="td-scroll td-ltwrap"><div class="td-lt"><div class="td-ltr td-lth"><span>Name</span><span>Check-in week</span><span>Coach</span></div>${rows.map(x=>`<button type="button" class="td-ltr" data-open="${x.c.id}"><span class="td-ltn"><span class="td-ini">${ini(x.c)}</span><b>${esc(x.c.name)}</b></span><span><i class="td-lv wk${Math.min(12,x.w)}">Week ${x.w}</i></span><span class="td-ltc">${esc(x.c.coach)}</span></button>`).join('')}</div></div>`
       :`<p class="td-empty">${any?'Nobody has reached week '+from+' yet.':'Fills in once the weekly Typeform check-ins are connected. Nothing is worked out from dates.'}</p>`}</section>`}
 
 /* Onboarding and Next phase: the two Notion client boards. They fill once the Notion connection is switched on (window.TTL_PIPE). */
 let PIPE={onboarding:null,renewal:null};
-const PIPE_DEF={onboarding:['Onboarding','New clients moving through setup','Onboarding’s board in Notion'],renewal:['Next phase','Renewals moving through the next-phase steps','The Next Phase / Accelerator board in Notion']};
-function pipeHTML(k){const [title,sub,src]=PIPE_DEF[k],rows=PIPE[k];
-  if(!window.TTL_PIPE||!rows)return `<section class="td-card td-soon"><div class="td-h"><h2>${title}</h2><span class="td-tag">Connecting next</span></div><p>${sub}. Comes live from ${src}.</p></section>`;
+const PIPE_DEF={onboarding:['🤝','Onboarding','New clients moving through setup','Onboarding’s board in Notion','Onboarding Process'],renewal:['🚀','Next Phase','Renewals moving through the next-phase steps','The Next Phase / Accelerator board in Notion','Renewal Process']};
+// Same colours as the status options in the two Notion boards.
+const N_COL={green:['donenandclosed','doneandclosed','postdeliveryfollowupdone','deliverydone','markedclosed'],
+  blue:['readytodeliver','workoutsdue','waitingforapproval','habitssetup','planbuilt','readytobuild','loomdue','deliverydue','workoutplandue','planready','reviewdue'],
+  yellow:['awaitingsubmissiondata','obcallbooked','obcalldone','groupandquestionnairedone','goalsettingcalldue','questionnairedoneandgoalsettingbooked','questionnairesent']};
+const nCol=t=>{const k=String(t||'').toLowerCase().replace(/[^a-z]/g,'');return Object.keys(N_COL).find(c=>N_COL[c].includes(k))||'gray'};
+const N_ICON={name:'<path d="M4 18 9 6l5 12M6 14h6M17 10v8M17 12c2-2 4-1 4 1v5"/>',status:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2.5"/>',person:'<circle cx="12" cy="9" r="3.5"/><path d="M5 19c1.5-4 12.500-4 14 0"/>'};
+function pipeHTML(k){const [emo,title,sub,src,prop]=PIPE_DEF[k],rows=PIPE[k];
+  if(!window.TTL_PIPE||!rows)return `<section class="td-card td-soon"><div class="td-h"><h2>${emo} ${title}</h2><span class="td-tag">Connecting next</span></div><p>${sub}. Comes live from ${src}.</p></section>`;
   const open=rows.filter(r=>!/closed/i.test(r.stage||''));
-  return `<section class="td-card td-pipe"><div class="td-h"><h2>${title} <em>${open.length}</em></h2>${syncLine()}</div><p class="td-sub">${sub}</p>
-    ${open.length?`<div class="td-scroll td-ltwrap"><div class="td-lt"><div class="td-ltr td-lth"><span>Name</span><span>Stage</span><span>Coach</span></div>${open.map(r=>`<div class="td-ltr"><span class="td-ltn"><b>${esc(r.name)}</b></span><span><i class="td-lv st">${esc(r.stage||'Not started')}</i>${r.payment&&r.payment!=='Complete'?`<em>${esc(r.payment)}</em>`:''}</span><span class="td-ltc">${esc(r.coach||'')}</span></div>`).join('')}</div></div>`:'<p class="td-empty">Nothing open right now.</p>'}</section>`}
+  return `<section class="td-card td-pipe nt"><div class="nt-h"><h2><span class="nt-emo">${emo}</span>${title}</h2><span class="nt-n">${open.length}</span>${syncLine()}</div>
+    ${open.length?`<div class="nt-wrap"><div class="nt-row nt-head"><span>${svg(N_ICON.name,14)}Name</span><span>${svg(N_ICON.status,14)}${prop}</span><span>${svg(N_ICON.person,14)}Assign</span></div>
+      ${open.map(r=>`<div class="nt-row"><span class="nt-name">${esc(r.name)}</span><span><span class="npill n-${nCol(r.stage)}"><i></i>${esc(r.stage||'Not started')}</span></span><span class="nt-who">${r.coach?`<i>${esc(r.coach[0])}</i>${esc(r.coach)}`:''}</span></div>`).join('')}</div>`:'<p class="td-empty">Nothing open right now.</p>'}</section>`}
 
 function needsHTML(){const {needs}=dashData();
   return `<section class="td-card td-needs" data-pop="needs"><div class="td-h"><h2>${TEAM_ON()?'Needs '+esc(VIEW):'Needs you'} today <em>${needs.length}</em></h2>${expandBtn('needs','Needs you today')}</div>
@@ -226,10 +219,10 @@ function watchHTML(){const {tagged}=dashData();
   </section>`}
 
 /* ---------- Widgets: a 12-column grid each coach can rearrange and resize (wide screens). Saved on this device, per coach. ---------- */
-const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),timer:()=>timerHTML(),note:()=>noteHTML(),expiring:()=>expiringHTML(),onboarding:()=>pipeHTML('onboarding'),renewal:()=>pipeHTML('renewal'),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
-const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',timer:'Timer',note:'Team note',expiring:'Expiring soon',onboarding:'Onboarding',renewal:'Next phase',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
-const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['timer',2,4],['note',3,4],['calls',3,4],['needs',4,4],['expiring',4,5],['onboarding',4,5],['renewal',4,5],['watch',12,4]];
-const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],timer:[2,3],note:[2,3],expiring:[3,3],onboarding:[3,3],renewal:[3,3],calls:[3,4],needs:[3,3],watch:[4,3]};
+const W_HTML={tasks:()=>tasksHTML(),ladder:()=>ladderHTML(),checkin:()=>checkinHTML(),timer:()=>timerHTML(),expiring:()=>expiringHTML(),onboarding:()=>pipeHTML('onboarding'),renewal:()=>pipeHTML('renewal'),calls:()=>callsHTML(),needs:()=>needsHTML(),watch:()=>watchHTML()};
+const W_NAME={tasks:'Tasks',ladder:'Escalations',checkin:'Check-in status',timer:'Timer',expiring:'Expiring soon',onboarding:'Onboarding',renewal:'Next phase',calls:'Calls',needs:'Needs you today',watch:'Watch list'};
+const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['timer',2,4],['calls',4,4],['needs',6,4],['expiring',4,5],['onboarding',4,5],['renewal',4,5],['watch',12,4]];
+const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],timer:[2,3],expiring:[3,3],onboarding:[3,3],renewal:[3,3],calls:[3,4],needs:[3,3],watch:[4,3]};
 const W_ROW=56,W_GAP=16,LKEY='ttl-dash-layout-v1-'+WHO;
 const defLay=()=>W_DEF.map(([id,w,h])=>({id,w,h}));
 function loadLay(){try{const s=JSON.parse(localStorage.getItem(LKEY)||'null');if(Array.isArray(s)){const ok=s.filter(x=>W_HTML[x.id]&&x.w>0&&x.h>0);defLay().forEach(d=>{if(!ok.find(x=>x.id===d.id))ok.push(d)});return ok}}catch(_){}return defLay()}
@@ -241,7 +234,6 @@ function flip(grid,change,skip){const els=[...grid.children],a=new Map(els.map(e
   els.forEach(el=>{if(el===skip)return;const o=a.get(el),b=el.getBoundingClientRect(),dx=o.left-b.left,dy=o.top-b.top;if(dx||dy)el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:280,easing:'cubic-bezier(.2,.8,.2,1)'})})}
 function renderDash(){
   if(dash.hidden||DRAGW)return;
-  if(document.activeElement&&document.activeElement.id==='snTx'&&!POPNEW)return; // never redraw under someone typing in the team note
   const keep=[...dash.querySelectorAll('[data-keep]')].map(e=>[e.dataset.keep,e.scrollTop]);
   dash.innerHTML=`<div class="td-wrap">
   <button type="button" class="td-back" data-go="home">${svg(I.back,14)}Home</button>
@@ -301,6 +293,46 @@ dash.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&POP&&!dash.hidden)closePop()});
 
+/* ---------- Team notes: a pin in the top-right corner. Hover (or tap) opens the notes: one neon page per coach, swipe between them. ---------- */
+const SN_COL=['#F4FF4A','#FF8BD9','#6CFFB0','#72F2FF','#FFB45E','#C9A2FF'];
+const snRoot=document.createElement('div');snRoot.className='sn-root';snRoot.hidden=true;app.appendChild(snRoot);
+const SKEY2='ttl-note-seen-'+WHO;let SN_SEEN={};try{SN_SEEN=JSON.parse(localStorage.getItem(SKEY2)||'{}')}catch(_){}
+let SN_OPEN=false,SN_STICK=false,SN_T=0,SN_HIDE=0,SN_DIRTY=0,SN_PAGE=0;
+const snPeople=()=>{const all=TTL_STORE.coaches?TTL_STORE.coaches():[WHO];return [WHO,...all.filter(n=>n!==WHO)]};
+const snNotes=()=>(TTL_STORE.note&&TTL_STORE.note())||{};
+const snUnread=()=>snPeople().filter(n=>n!==WHO&&snNotes()[n]&&snNotes()[n].t&&(snNotes()[n].at||'')>(SN_SEEN[n]||''));
+const snWhen=at=>at?new Date(at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'';
+function snMark(name){const n=snNotes()[name];if(!n||name===WHO||!SN_OPEN)return;if((n.at||'')>(SN_SEEN[name]||'')){SN_SEEN[name]=n.at;try{localStorage.setItem(SKEY2,JSON.stringify(SN_SEEN))}catch(_){}snBadge()}}
+function snBadge(){const u=snUnread(),pin=snRoot.querySelector('.sn-pinb');if(!pin)return;pin.classList.toggle('new',u.length>0);const b=pin.querySelector('em');b.hidden=!u.length;b.textContent=u.length;
+  pin.setAttribute('aria-label',u.length?`Team notes: ${u.join(' and ')} wrote something new`:'Team notes');
+  snRoot.querySelectorAll('.sn-dot').forEach(d=>d.classList.toggle('new',u.includes(d.dataset.name)))}
+function snRender(){const P=snPeople(),N=snNotes(),all=TTL_STORE.coaches?TTL_STORE.coaches():P;
+  snRoot.innerHTML=`<button type="button" class="sn-pinb" aria-expanded="${SN_OPEN}"><span aria-hidden="true">📌</span><em hidden></em></button>
+  <div class="sn-pad${SN_OPEN?' open':''}" role="dialog" aria-label="Team notes">
+    <div class="sn-pages">${P.map(n=>{const c=SN_COL[Math.max(0,all.indexOf(n))%SN_COL.length],x=N[n]||{},me=n===WHO;
+      return `<section class="sn-page" data-name="${esc(n)}" style="--nc:${c}"><header><b>${esc(n)}${me?' <span>(you)</span>':''}</b><small>${x.t&&x.at?snWhen(x.at):''}</small></header>
+        ${me?`<textarea class="sn-tx" id="snTx" placeholder="Write a note for the team…" aria-label="Your note">${esc(x.t||'')}</textarea>`:`<div class="sn-tx sn-ro" tabindex="0">${x.t?esc(x.t):`<span class="sn-mt">Nothing from ${esc(n)} yet.</span>`}</div>`}</section>`}).join('')}</div>
+    <footer class="sn-foot"><button type="button" class="sn-arw" data-sn="-1" aria-label="Previous note">‹</button><div class="sn-dots">${P.map((n,i)=>`<button type="button" class="sn-dot" data-sni="${i}" data-name="${esc(n)}" style="--nc:${SN_COL[Math.max(0,all.indexOf(n))%SN_COL.length]}" aria-label="${esc(n)}'s note"></button>`).join('')}</div><button type="button" class="sn-arw" data-sn="1" aria-label="Next note">›</button></footer></div>`;
+  snBadge();snGo(SN_PAGE,true)}
+function snGo(i,instant){const pg=snRoot.querySelector('.sn-pages');if(!pg)return;const n=pg.children.length;SN_PAGE=Math.max(0,Math.min(n-1,i));pg.scrollTo({left:pg.clientWidth*SN_PAGE,behavior:instant?'auto':'smooth'});snDots()}
+function snDots(){snRoot.querySelectorAll('.sn-dot').forEach((d,i)=>d.classList.toggle('on',i===SN_PAGE));const p=snPeople()[SN_PAGE];if(p)snMark(p)}
+function snSet(open){if(open===SN_OPEN)return;SN_OPEN=open;const pad=snRoot.querySelector('.sn-pad');if(pad)pad.classList.toggle('open',open);const pin=snRoot.querySelector('.sn-pinb');if(pin)pin.setAttribute('aria-expanded',open);
+  if(open){const u=snUnread();if(u.length)snGo(snPeople().indexOf(u[0]),true);else snDots()}else SN_STICK=false}
+snRoot.addEventListener('mouseenter',()=>{clearTimeout(SN_HIDE);snSet(true)});
+snRoot.addEventListener('mouseleave',()=>{clearTimeout(SN_HIDE);SN_HIDE=setTimeout(()=>{if(!SN_STICK&&!snRoot.contains(document.activeElement))snSet(false)},320)});
+snRoot.addEventListener('focusout',()=>setTimeout(()=>{if(!SN_STICK&&!snRoot.matches(':hover')&&!snRoot.contains(document.activeElement))snSet(false)},0));
+snRoot.addEventListener('click',e=>{if(e.target.closest('.sn-pinb')){SN_STICK=!SN_STICK;snSet(SN_STICK||snRoot.matches(':hover'));return}
+  const a=e.target.closest('[data-sn]');if(a){snGo(SN_PAGE+ +a.dataset.sn);return}const d=e.target.closest('[data-sni]');if(d)snGo(+d.dataset.sni)});
+snRoot.addEventListener('scroll',e=>{const pg=e.target;if(!pg.classList||!pg.classList.contains('sn-pages'))return;const i=Math.round(pg.scrollLeft/Math.max(1,pg.clientWidth));if(i!==SN_PAGE){SN_PAGE=i;snDots()}},true);
+snRoot.addEventListener('input',e=>{if(e.target.id!=='snTx')return;SN_DIRTY=Date.now();clearTimeout(SN_T);const v=e.target.value;
+  SN_T=setTimeout(()=>{TTL_STORE.setNote(v).then(()=>{const s=snRoot.querySelector('.sn-page small');if(s)s.textContent=v?snWhen(new Date()):''}).catch(()=>toast('Could not save your note. Check your connection.'))},650)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&SN_OPEN&&!snRoot.hidden){SN_STICK=false;snSet(false);if(snRoot.contains(document.activeElement))document.activeElement.blur()}});
+document.addEventListener('pointerdown',e=>{if(SN_OPEN&&!snRoot.contains(e.target)){SN_STICK=false;if(snRoot.contains(document.activeElement))document.activeElement.blur();snSet(false)}});
+// Other coaches' pages refresh every few seconds; a page someone else changed lights up the pin until it is looked at.
+setInterval(async()=>{if(snRoot.hidden||!TTL_STORE.refreshNote)return;const before=JSON.stringify(snNotes());await TTL_STORE.refreshNote().catch(()=>null);const N=snNotes();if(JSON.stringify(N)===before)return;
+  snRoot.querySelectorAll('.sn-page').forEach(pg=>{const n=pg.dataset.name;if(n===WHO)return;const x=N[n]||{},el=pg.querySelector('.sn-ro');if(!el)return;const t=x.t||'';if(el.textContent!==t&&(t||!el.querySelector('.sn-mt'))){el.textContent=t;pg.classList.remove('flash');void pg.offsetWidth;pg.classList.add('flash')}pg.querySelector('small').textContent=t&&x.at?snWhen(x.at):''});
+  snBadge();if(SN_OPEN)snDots()},5000);
+
 /* ---------- Home: the team, and adding a teammate (head coach only) ---------- */
 let ADDT=false;
 function renderTeam(){const el=document.getElementById('thTeam');if(!el)return;const list=TTL_STORE.coaches?TTL_STORE.coaches():[OWNER];
@@ -317,9 +349,9 @@ home.addEventListener('submit',e=>{if(e.target.id!=='ttForm')return;e.preventDef
 /* ---------- Routing: #home, #portal, #dashboard, #sheet ---------- */
 let FROM='home';
 function show(r){
-  if(r==='sheet'){if(!XOPEN)XS.open();return}
+  if(r==='sheet'){snRoot.hidden=true;if(!XOPEN)XS.open();return}
   if(XOPEN)XS.close();
-  home.hidden=r!=='home';dash.hidden=r!=='dashboard';wrap.style.display=r==='portal'?'':'none';
+  home.hidden=r!=='home';dash.hidden=r!=='dashboard';snRoot.hidden=r!=='dashboard';if(r==='dashboard'&&!snRoot.firstChild)snRender();if(r!=='dashboard')snSet(false);wrap.style.display=r==='portal'?'':'none';
   if(r==='home'){document.getElementById('thDate').textContent=today();document.getElementById('thHi').textContent=greet()+', '+WHO;document.getElementById('thCount').textContent=mine().length+' of your clients · '+CLIENTS.length+' in total';renderTeam()}
   if(r==='dashboard'){renderDash();loadFeeds()}
   if(r!=='sheet')FROM=r;

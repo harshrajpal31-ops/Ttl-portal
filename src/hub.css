@@ -213,25 +213,73 @@ button.td-ltr{cursor:pointer}button.td-ltr:hover{background:var(--ground)}
 .tm-btns button[data-timer=stop]{background:#FCE4E1;color:#B3261E}
 .tm-btns button:disabled{opacity:.35;cursor:default}
 
-/* Team note: a sticky note */
-.td-note{position:relative;background:linear-gradient(160deg,#FFF6B0 0%,#FFE873 100%);box-shadow:0 1px 1px rgba(120,96,0,.18),0 10px 22px -8px rgba(120,96,0,.38);display:flex;flex-direction:column;gap:6px;padding:16px 16px 12px;border-radius:6px 20px 20px 20px;transform:rotate(-.6deg)}
-.td-note::after{content:'';position:absolute;right:0;bottom:0;width:26px;height:26px;border-radius:20px 0 20px 0;background:linear-gradient(135deg,#F2D54A 0 50%,rgba(255,255,255,.55) 50%);pointer-events:none}
-.sn-pin{position:absolute;top:6px;right:10px;font-size:30px;line-height:1;transform:rotate(18deg);filter:drop-shadow(0 4px 4px rgba(90,60,0,.35));pointer-events:none;user-select:none}
-.sn-top{display:flex;align-items:center;gap:10px;padding-right:44px}
-.sn-top b{font-size:15px;color:#5A4500;font-family:"Marker Felt","Chalkboard SE","Bradley Hand","Comic Sans MS",cursive;letter-spacing:.01em}
-.td-note .td-live{color:#9A6B00;font-size:10.5px}.td-note .td-live i{background:#E0A100}
-.sn-tx{flex:1 1 auto;min-height:96px;width:100%;box-sizing:border-box;border:0;outline:0;resize:none;background:transparent;color:#3A2E00;font-family:"Bradley Hand","Marker Felt","Chalkboard SE","Segoe Print","Comic Sans MS",cursive;font-size:18px;line-height:28px;padding:0;
-  background-image:repeating-linear-gradient(transparent 0 27px,rgba(120,96,0,.18) 27px 28px);background-attachment:local}
-.sn-tx::placeholder{color:rgba(90,69,0,.5)}
-.sn-tx:focus-visible{outline:2px solid rgba(120,96,0,.35);outline-offset:4px;border-radius:4px}
-.sn-tx.flash{animation:snflash .9s ease-out}
-@keyframes snflash{from{background-color:rgba(255,255,255,.75)}to{background-color:transparent}}
-.sn-by{font-size:11.5px;color:#7A6200;font-weight:600}
-@media (prefers-reduced-motion:reduce){.td-note{transform:none}.sn-tx.flash{animation:none}}
+/* Team notes: pin in the top-right corner, neon pages */
+.sn-root{position:fixed;top:max(14px,env(safe-area-inset-top,0px));right:max(18px,env(safe-area-inset-right,0px));z-index:55;display:flex;flex-direction:column;align-items:flex-end}
+.sn-pinb{position:relative;width:52px;height:52px;border:0;border-radius:50%;background:var(--card);box-shadow:0 2px 6px rgba(0,0,0,.12),0 8px 20px rgba(20,32,73,.14);cursor:pointer;font-size:26px;line-height:1;display:grid;place-items:center;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
+.sn-pinb>span{display:block;transform:rotate(14deg);transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
+.sn-pinb:hover>span,.sn-pinb[aria-expanded=true]>span{transform:rotate(-8deg) scale(1.12)}
+.sn-pinb:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.sn-pinb em{position:absolute;top:-3px;right:-3px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:10px;background:#FF2D55;color:#fff;font-style:normal;font-size:12px;font-weight:700;display:grid;place-items:center;box-shadow:0 0 0 2px var(--card)}
+/* someone wrote something you have not seen: the pin rings, glows and nods until you open it */
+.sn-pinb.new{animation:snglow 1.8s ease-in-out infinite}
+.sn-pinb.new::before,.sn-pinb.new::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid #FF2D55;animation:snring 1.8s ease-out infinite;pointer-events:none}
+.sn-pinb.new::after{animation-delay:.9s}
+.sn-pinb.new>span{animation:snnod 1.8s ease-in-out infinite}
+@keyframes snring{from{transform:scale(1);opacity:.9}to{transform:scale(1.9);opacity:0}}
+@keyframes snglow{0%,100%{box-shadow:0 2px 6px rgba(0,0,0,.12),0 0 0 0 rgba(255,45,85,.0)}50%{box-shadow:0 2px 6px rgba(0,0,0,.12),0 0 22px 4px rgba(255,45,85,.45)}}
+@keyframes snnod{0%,60%,100%{transform:rotate(14deg)}70%{transform:rotate(-16deg) scale(1.15)}80%{transform:rotate(20deg) scale(1.15)}90%{transform:rotate(-6deg)}}
+.sn-pad{width:min(340px,calc(100vw - 36px));margin-top:10px;border-radius:6px 22px 22px 22px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,.12),0 24px 48px -10px rgba(20,32,73,.38);
+  transform-origin:calc(100% - 26px) -30px;transform:scale(.2) rotate(8deg);opacity:0;visibility:hidden;pointer-events:none;transition:transform .34s cubic-bezier(.2,1.25,.3,1),opacity .2s ease,visibility 0s linear .34s}
+.sn-pad.open{transform:none;opacity:1;visibility:visible;pointer-events:auto;transition:transform .34s cubic-bezier(.2,1.25,.3,1),opacity .2s ease,visibility 0s}
+.sn-pages{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.sn-pages::-webkit-scrollbar{display:none}
+.sn-page{flex:0 0 100%;scroll-snap-align:start;scroll-snap-stop:always;box-sizing:border-box;padding:16px 18px 10px;background:var(--nc);color:#17140A;display:flex;flex-direction:column;gap:8px;min-height:250px}
+.sn-page header{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.sn-page header b{font-size:19px;font-family:"Marker Felt","Chalkboard SE","Bradley Hand","Comic Sans MS",cursive;letter-spacing:.01em}
+.sn-page header b span{font-size:12px;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;font-weight:600;opacity:.6}
+.sn-page header small{font-size:11.5px;font-weight:600;opacity:.65;white-space:nowrap}
+.sn-tx{flex:1 1 auto;min-height:170px;max-height:46vh;width:100%;box-sizing:border-box;margin:0;border:0;outline:0;resize:none;overflow-y:auto;background:transparent;color:#17140A;white-space:pre-wrap;overflow-wrap:anywhere;
+  font-family:"Bradley Hand","Marker Felt","Chalkboard SE","Segoe Print","Comic Sans MS",cursive;font-size:18px;line-height:28px;padding:0;
+  background-image:repeating-linear-gradient(transparent 0 27px,rgba(0,0,0,.14) 27px 28px);background-attachment:local}
+.sn-tx::placeholder{color:rgba(23,20,10,.45)}
+.sn-tx:focus-visible{outline:2px solid rgba(0,0,0,.35);outline-offset:4px;border-radius:4px}
+.sn-mt{opacity:.5}
+.sn-page.flash{animation:snflash 1s ease-out}
+@keyframes snflash{0%{filter:brightness(1.35) saturate(1.3)}100%{filter:none}}
+.sn-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;background:#17140A}
+.sn-arw{width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0 0 3px}
+.sn-arw:hover{background:rgba(255,255,255,.22)}
+.sn-dots{display:flex;gap:8px;align-items:center}
+.sn-dot{position:relative;width:12px;height:12px;border-radius:50%;border:0;padding:0;background:var(--nc);opacity:.4;cursor:pointer;transition:transform .2s,opacity .2s}
+.sn-dot::before{content:'';position:absolute;inset:-10px}
+.sn-dot.on{opacity:1;transform:scale(1.35)}
+.sn-dot.new{opacity:1;box-shadow:0 0 0 2px #17140A,0 0 0 4px #FF2D55}
+@media (prefers-reduced-motion:reduce){.sn-pinb.new,.sn-pinb.new>span,.sn-pinb.new::before,.sn-pinb.new::after,.sn-page.flash{animation:none}.sn-pinb.new{box-shadow:0 0 0 3px #FF2D55}.sn-pad,.sn-pad.open{transition:opacity .15s}.sn-pad{transform:none}}
+/* Notion look for the sections that come from Notion */
+.nt-emo{margin-right:8px;font-size:1.05em}
+.nt{padding:16px 0 6px;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#37352F}
+.nt-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 18px 12px}
+.nt-h h2{font-size:20px;font-weight:700;letter-spacing:-.01em;color:#37352F;margin:0}
+.nt-n{font-size:13px;color:#9B9A97;font-weight:500}
+.nt-h .td-sync{margin-left:auto}
+.nt-wrap{border-top:1px solid #E9E9E7}
+.nt-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1.5fr) minmax(0,.9fr);align-items:center;border-bottom:1px solid #E9E9E7;min-height:38px}
+.nt-row>span{padding:7px 10px;border-right:1px solid #E9E9E7;min-width:0;height:100%;box-sizing:border-box;display:flex;align-items:center;gap:6px}
+.nt-row>span:first-child{padding-left:18px}.nt-row>span:last-child{border-right:0}
+.nt-head>span{font-size:13px;color:#9B9A97;font-weight:400}.nt-head svg{flex:none;opacity:.8}
+.nt-name{font-size:14px;font-weight:600;color:#37352F}
+.nt-who{font-size:14px;color:#37352F}.nt-who i{flex:none;width:20px;height:20px;border-radius:50%;background:#E3E2E0;color:#37352F;font-style:normal;font-size:11px;font-weight:600;display:grid;place-items:center}
+.npill{display:inline-flex;align-items:center;gap:6px;max-width:100%;font-size:13px;line-height:1.25;padding:3px 9px 3px 7px;border-radius:999px}
+.npill i{flex:none;width:8px;height:8px;border-radius:50%}
+.npill.n-gray{background:#E3E2E0;color:#32302C}.npill.n-gray i{background:#91918E}
+.npill.n-green{background:#DBEDDB;color:#1C3829}.npill.n-green i{background:#6C9B7D}
+.npill.n-blue{background:#D3E5EF;color:#183347}.npill.n-blue i{background:#5B97BD}
+.npill.n-yellow{background:#FDECC8;color:#402C1B}.npill.n-yellow i{background:#CB912F}
+.td-tasks .td-h h2{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:#37352F;font-weight:700}
+.td-demo{font-weight:600;color:#9A3C00}
 /* Expiring soon, Onboarding, Next phase */
 .td-lv[class*=wk]{background:#FDE3D2;color:#9A3C00}.td-lv.wk12{background:#FBD9D5;color:#A3231A}
-.td-lv.st{background:var(--fill);color:var(--label);white-space:normal}
-.td-expg .td-ltr,.td-pipe .td-ltr{grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,.7fr)}
+.td-expg .td-ltr{grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,.7fr)}
 /* Home: team */
 .th-team{background:var(--card);border-radius:20px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .tt-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.tt-h h2{font-size:18px;margin:0}

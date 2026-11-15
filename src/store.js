@@ -37,7 +37,7 @@ async function must(q) {
 }
 
 export function createStore(who) {
-  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {}, note: null, team: [] };
+  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {}, note: {}, team: [] };
   const L = {}; // listeners by key: 'clients', 'edits', 'feed', 'meta/sync', 'settings/rules', 'edits/<id>', 'feed/<day>'
   const savedFeed = new Set(); // feed item timestamps already in change_log
 
@@ -116,7 +116,7 @@ export function createStore(who) {
 
     // Cell comments on the Sheet: one settings row per client, key 'comment:<client id>', value { field: { t, by, at } }.
     S.comments = Object.fromEntries(settings.filter(x => x.key.startsWith('comment:')).map(x => [x.key.slice(8), x.value || {}]));
-    S.note = (settings.find(x => x.key === 'team_note') || {}).value || null;       // shared sticky note { t, by, at }
+    S.note = (settings.find(x => x.key === 'team_notes') || {}).value || {};        // sticky notes, one page per coach: { name: { t, at } }
     S.team = (settings.find(x => x.key === 'coaches') || {}).value || []; if (!Array.isArray(S.team)) S.team = [];             // teammates added from Home
     const tr = (settings.find(x => x.key === 'tag_rules') || {}).value;
     S.rules = tr ? Object.fromEntries(Object.entries(RULE_KEYS).filter(([, k]) => tr[k] != null).map(([d, k]) => [d, +tr[k]])) : undefined;
@@ -294,14 +294,21 @@ export function createStore(who) {
   }
 
   // ---- team: the shared sticky note and the list of coaches ----
+  // Each coach writes only on their own page. The row is re-read before saving so two people typing never overwrite each other.
   function setNote(text) {
-    S.note = { t: text, by: who, at: new Date().toISOString() };
-    const value = S.note;
-    return enqueue(() => must(db.from('settings').upsert({ key: 'team_note', value })));
+    const mine = { t: text, at: new Date().toISOString() };
+    S.note = { ...S.note, [who]: mine };
+    return enqueue(async () => {
+      const { data, error } = await db.from('settings').select('value').eq('key', 'team_notes').maybeSingle();
+      if (error) throw error;
+      const value = { ...((data && data.value) || {}), [who]: mine };
+      await must(db.from('settings').upsert({ key: 'team_notes', value }));
+      S.note = { ...value, [who]: S.note[who] || mine };
+    });
   }
   async function refreshNote() {
-    const { data, error } = await db.from('settings').select('value').eq('key', 'team_note').maybeSingle();
-    if (!error && data && data.value && (!S.note || (data.value.at || '') > (S.note.at || ''))) S.note = data.value;
+    const { data, error } = await db.from('settings').select('value').eq('key', 'team_notes').maybeSingle();
+    if (!error && data && data.value) S.note = { ...data.value, ...(S.note[who] && (!data.value[who] || S.note[who].at > data.value[who].at) ? { [who]: S.note[who] } : {}) };
     return S.note;
   }
   const coaches = () => {
