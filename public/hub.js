@@ -31,8 +31,10 @@ home.innerHTML=`<div class="th-wrap">
     <button class="th-tile" type="button" data-go="sheet"><span class="th-ic th-emo" aria-hidden="true">📊</span><b>Sheet</b><span class="th-d">Check-in, Progress, Dates, Expired</span></button>
     <button class="th-tile" type="button" data-go="dashboard"><span class="th-ic th-emo" aria-hidden="true">📅</span><b>Dashboard</b><span class="th-d">Your day at a glance</span></button>
     <button class="th-tile" type="button" data-go="portal"><span class="th-ic th-emo" aria-hidden="true">🚀</span><b>Portal</b><span class="th-d" id="thCount">Clients and profiles</span></button>
+    <a class="th-tile" href="https://twicethelean.trainerize.com" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">💪</span><b>Trainerize <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Programmes and client app</span></a>
+    <a class="th-tile" href="https://calendly.com/event_types/user/me" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">🗓️</span><b>Calendly <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Call links and bookings</span></a>
+    <a class="th-tile" href="https://admin.typeform.com" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">📝</span><b>Typeform <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Onboarding and check-in forms</span></a>
   </nav>
-  <section class="th-team" id="thTeam" aria-label="Team"></section>
   <p class="th-foot">Using as <b>${esc(WHO)}</b> · <button type="button" class="linkbtn" id="thSwitch">Switch</button> · <button type="button" class="linkbtn" id="thOut">Log out</button></p>
 </div>`;
 app.appendChild(home);
@@ -50,7 +52,7 @@ const DUE=['Today','Tomorrow','Later This week','Next week','Undecided'];
 // VIEW is whose day is on screen: the coach using the portal, or (head coach only) a team member picked under Team.
 const OWNER='Harsh',IS_OWNER=WHO===OWNER;
 let VIEW=WHO;
-const team=()=>[...new Set(CLIENTS.map(c=>c.coach))].filter(c=>c&&c!==WHO).sort();
+const team=()=>(window.TTL_STORE&&TTL_STORE.coaches?TTL_STORE.coaches():[...new Set(CLIENTS.map(c=>c.coach))]).filter(n=>n&&n!==WHO); // every teammate, including one added today with no clients yet
 const TEAM_ON=()=>VIEW!==WHO;
 const whose=()=>TEAM_ON()?VIEW+"'s":'My';
 let TTAB='Today',POP=null,POPNEW=false,CALDAY=0,TASKS=null,CALLS=null,SYNCED=null;
@@ -347,26 +349,13 @@ setInterval(async()=>{if(qc.hidden||document.visibilityState!=='visible'||!TTL_S
   if(sig()===before){if(QC_OPEN&&JSON.stringify(qcRead())!==rb)qcPaint(true);qcBadge();if(!qcTags().length)qcBanner(null);return}
   if(QC_OPEN){qcPaint(true);qcSeen()}else{qcBadge();const t=qcTags().filter(m=>!QC_TOLD.has(m.id));if(t.length){t.forEach(m=>QC_TOLD.add(m.id));qcBanner(t[t.length-1])}}},4000);
 
-/* ---------- Home: the team, and adding a teammate (head coach only) ---------- */
-let ADDT=false;
-function renderTeam(){const el=document.getElementById('thTeam');if(!el)return;const list=TTL_STORE.coaches?TTL_STORE.coaches():[OWNER];
-  el.innerHTML=`<div class="tt-h"><h2>Team</h2>${IS_OWNER&&!ADDT?'<button type="button" class="tt-add" id="ttAdd">+ Add teammate</button>':''}</div>
-    <div class="tt-list">${list.map(n=>`<div class="tt-p${n===WHO?' me':''}"><span class="td-ini">${esc(n[0])}</span><span><b>${esc(n)}</b><em>${n===OWNER?'Head coach':'Coach'} · ${CLIENTS.filter(c=>c.coach===n).length} clients</em></span></div>`).join('')}</div>
-    ${ADDT?`<form class="tt-form" id="ttForm"><label for="ttName">Teammate's first name</label><div><input id="ttName" autocomplete="off" maxlength="24" placeholder="e.g. Aditi"><button type="submit" class="tt-ok">Add</button><button type="button" class="tt-no" id="ttNo">Cancel</button></div>
-      <p>They get the same set-up as ${esc(list.find(n=>n!==OWNER)||'the other coaches')}: their own Check-in and Progress sheets, their own Dashboard, and their name in every coach list. They log in with the shared portal login and pick their name.</p></form>`:''}`}
-home.addEventListener('click',e=>{if(e.target.id==='ttAdd'){ADDT=true;renderTeam();document.getElementById('ttName').focus()}else if(e.target.id==='ttNo'){ADDT=false;renderTeam()}});
-home.addEventListener('submit',e=>{if(e.target.id!=='ttForm')return;e.preventDefault();const raw=document.getElementById('ttName').value.trim().replace(/\s+/g,' ');if(!raw)return;
-  const name=raw[0].toUpperCase()+raw.slice(1);if(!/^[A-Za-z][A-Za-z .'-]{1,23}$/.test(name)){toast('Use letters only for the name.');return}
-  if(TTL_STORE.coaches().some(n=>n.toLowerCase()===name.toLowerCase())){toast(name+' is already on the team.');return}
-  TTL_STORE.addCoach(name).then(()=>toast(name+' added. They can now pick their name when they log in.')).catch(()=>toast('Could not add the teammate. Check your connection.'));ADDT=false;renderTeam();if(window.XS)XS.refresh()});
-
 /* ---------- Routing: #home, #portal, #dashboard, #sheet ---------- */
 let FROM='home';
 function show(r){
   if(r==='sheet'){qc.hidden=true;if(!XOPEN)XS.open();return}
   if(XOPEN)XS.close();
   home.hidden=r!=='home';dash.hidden=r!=='dashboard';qc.hidden=false;if(!qc.firstChild){qcRender();const t=qcTags();if(t.length){t.forEach(m=>QC_TOLD.add(m.id));qcBanner(t[t.length-1])}}wrap.style.display=r==='portal'?'':'none';
-  if(r==='home'){document.getElementById('thDate').textContent=today();document.getElementById('thHi').textContent=greet()+', '+WHO;document.getElementById('thCount').textContent=mine().length+' of your clients · '+CLIENTS.length+' in total';renderTeam()}
+  if(r==='home'){document.getElementById('thDate').textContent=today();document.getElementById('thHi').textContent=greet()+', '+WHO;document.getElementById('thCount').textContent=mine().length+' of your clients · '+CLIENTS.length+' in total'}
   if(r==='dashboard'){renderDash();loadFeeds()}
   if(r!=='sheet')FROM=r;
   window.scrollTo(0,0);

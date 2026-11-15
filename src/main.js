@@ -24,16 +24,36 @@ function loginScreen() {
   };
 }
 
-async function whoScreen() {
-  // Teammates added from Home are kept in settings; everyone on that list can pick their name here.
+// Teammates added here are kept in settings; everyone on the list can pick their name.
+async function whoScreen(adding) {
   let team = [];
   try { const { data } = await db.from('settings').select('value').eq('key', 'coaches').maybeSingle(); if (data && Array.isArray(data.value)) team = data.value; } catch (_) {}
   const names = [...new Set(['Harsh', 'Shrutika', ...team])];
   const safe = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   app.innerHTML = shell(`
     <h1>Who's using the portal?</h1><p class="muted">Your changes are logged under this name. You can switch it later.</p>
-    ${names.map((n, i) => `<button ${i ? 'class="ghost" ' : ''}data-w="${safe(n)}">${safe(n)}</button>`).join('')}`);
+    ${names.map((n, i) => `<button ${i ? 'class="ghost" ' : ''}data-w="${safe(n)}">${safe(n)}</button>`).join('')}
+    ${adding ? `<form id="addMate" class="addmate"><label for="mateName">Teammate's first name</label><input id="mateName" autocomplete="off" maxlength="24" placeholder="e.g. Aditi">
+        <p class="err" id="mateErr" role="alert"></p><button type="submit">Add teammate</button><button type="button" class="link" id="mateNo">Cancel</button>
+        <p class="muted small">They get the same set-up as Shrutika: their own sheets, Dashboard and place in the team chat.</p></form>`
+      : `<button type="button" class="link" id="mateAdd">+ Add teammate</button>`}`);
   app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(b.dataset.w); render(); });
+  const add = document.getElementById('mateAdd'); if (add) add.onclick = () => whoScreen(true);
+  const no = document.getElementById('mateNo'); if (no) no.onclick = () => whoScreen(false);
+  const form = document.getElementById('addMate');
+  if (form) {
+    document.getElementById('mateName').focus();
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const err = document.getElementById('mateErr'), raw = document.getElementById('mateName').value.trim().replace(/\s+/g, ' ');
+      const name = raw ? raw[0].toUpperCase() + raw.slice(1) : '';
+      if (!/^[A-Za-z][A-Za-z .'-]{1,23}$/.test(name)) { err.textContent = 'Type a first name, letters only.'; return; }
+      if (names.some(n => n.toLowerCase() === name.toLowerCase())) { err.textContent = name + ' is already on the team.'; return; }
+      const { error } = await db.from('settings').upsert({ key: 'coaches', value: [...team, name] });
+      if (error) { err.textContent = 'Could not add: ' + error.message; return; }
+      whoScreen(false);
+    };
+  }
 }
 
 let started = false;
