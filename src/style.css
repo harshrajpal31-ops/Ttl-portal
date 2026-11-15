@@ -33,3 +33,4 @@ body { margin: 0; } /* the demo ran with no page margin; without this a light fr
 .auth .addmate { margin-top: 18px; padding-top: 14px; border-top: 1.5px solid #E3E7F1; }
 .auth .addmate button[type=submit] { margin-top: 6px; }
 .auth .small { font-size: 12.5px; margin-top: 10px; }
+#boot { position: fixed; inset: 0; z-index: 200; }

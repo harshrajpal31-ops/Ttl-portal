@@ -64,6 +64,11 @@ async function portal() {
   window.TTL_STORE = store;
   window.TTL_WHO = who;
   document.title = 'Coach Portal';
+  // Keep the loading card on top until Home / Dashboard are ready, so the client list never flashes first on a reload.
+  const boot = document.createElement('div');
+  boot.id = 'boot';
+  boot.innerHTML = shell(`<h1>Loading clients…</h1><p class="muted">Twice the Lean</p>`);
+  document.body.appendChild(boot);
   app.innerHTML = portalHTML;
   document.getElementById('whoName').textContent = who;
   window.TTL_CAN_SWITCH = !EMAIL_LOGIN || LOGIN === OWNER;
@@ -71,6 +76,7 @@ async function portal() {
   if (window.TTL_CAN_SWITCH) sw.onclick = () => { localStorage.setItem('ttl-pick', '1'); location.reload(); };
   else { if (sw.nextSibling && sw.nextSibling.nodeType === 3) sw.nextSibling.remove(); sw.remove(); }
   if (EMAIL_LOGIN && store.removed().includes(LOGIN)) { // a deleted coach cannot get in, even if their login still exists in Supabase
+    boot.remove();
     app.innerHTML = shell(`<h1>Access removed</h1><p class="muted">This login is no longer part of the Twice the Lean portal.</p><button id="bye">Log out</button>`);
     document.getElementById('bye').onclick = async () => { await db.auth.signOut(); location.reload(); };
     return;
@@ -87,10 +93,12 @@ async function portal() {
 
   // The portal and the Sheet are the demo's own scripts (public/), loaded in order.
   const load = src => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = fail; document.body.appendChild(s); });
-  await load('/portal.js');
-  await load('/sheet.js');
-  store.fireAll();
-  await load('/hub.js'); // Home screen + Dashboard, on top of the portal and the Sheet
+  try {
+    await load('/portal.js');
+    await load('/sheet.js');
+    store.fireAll();
+    await load('/hub.js'); // Home screen + Dashboard, on top of the portal and the Sheet
+  } finally { boot.remove(); }
 
   // Pick up the other coach's changes when coming back to the tab, and every 5 minutes.
   const refresh = () => { if (document.visibilityState === 'visible') store.reload().catch(() => {}); };
