@@ -35,7 +35,7 @@ home.innerHTML=`<div class="th-wrap">
     <a class="th-tile" href="https://calendly.com/event_types/user/me" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">🗓️</span><b>Calendly <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Call links and bookings</span></a>
     <a class="th-tile" href="https://admin.typeform.com" target="_blank" rel="noopener"><span class="th-ic th-emo" aria-hidden="true">📝</span><b>Typeform <span class="th-ext">${svg(I.ext,15)}</span></b><span class="th-d">Onboarding and check-in forms</span></a>
   </nav>
-  <p class="th-foot">Using as <b>${esc(WHO)}</b> · ${window.TTL_CAN_SWITCH?'<button type="button" class="linkbtn" id="thSwitch">Switch</button> · ':''}<button type="button" class="linkbtn" id="thOut">Log out</button></p>
+  <p class="th-foot">Using as <b>${esc(WHO)}</b> · ${window.TTL_CAN_SWITCH?'<button type="button" class="linkbtn" id="thSwitch">Switch</button> · ':''}${WHO==='Harsh'?'<button type="button" class="linkbtn" id="thTeamBtn">Manage team</button> · ':''}<button type="button" class="linkbtn" id="thOut">Log out</button></p>
 </div>`;
 app.appendChild(home);
 
@@ -227,8 +227,13 @@ const W_DEF=[['checkin',3,6],['tasks',5,6],['ladder',4,6],['timer',2,4],['calls'
 const W_MIN={tasks:[4,4],ladder:[3,3],checkin:[2,3],timer:[2,3],expiring:[3,3],onboarding:[3,3],renewal:[3,3],calls:[3,4],needs:[3,3],watch:[4,3]};
 const W_ROW=56,W_GAP=16,LKEY='ttl-dash-layout-v1-'+WHO;
 const defLay=()=>W_DEF.map(([id,w,h])=>({id,w,h}));
-function loadLay(){try{const s=JSON.parse(localStorage.getItem(LKEY)||'null');if(Array.isArray(s)){const ok=s.filter(x=>W_HTML[x.id]&&x.w>0&&x.h>0);defLay().forEach(d=>{if(!ok.find(x=>x.id===d.id))ok.push(d)});return ok}}catch(_){}return defLay()}
-const saveLay=()=>{try{localStorage.setItem(LKEY,JSON.stringify(LAY))}catch(_){}};
+// A saved layout is never rearranged by the portal. It is kept in the database per coach (same on every device and on the test link)
+// with a copy on this device. Only a section that did not exist when the layout was saved is added, at the very end.
+function loadLay(){let saved=window.TTL_STORE&&TTL_STORE.layout?TTL_STORE.layout(WHO):null;
+  if(!saved)try{const s=JSON.parse(localStorage.getItem(LKEY)||'null');if(Array.isArray(s))saved=s}catch(_){}
+  if(!Array.isArray(saved))return defLay();
+  const ok=saved.filter(x=>x&&W_HTML[x.id]&&x.w>0&&x.h>0).map(x=>({id:x.id,w:+x.w,h:+x.h}));defLay().forEach(d=>{if(!ok.find(x=>x.id===d.id))ok.push(d)});return ok}
+const saveLay=()=>{try{localStorage.setItem(LKEY,JSON.stringify(LAY))}catch(_){}if(window.TTL_STORE&&TTL_STORE.saveLayout)TTL_STORE.saveLayout(WHO,LAY.map(x=>({id:x.id,w:x.w,h:x.h}))).catch(()=>toast('Layout saved on this device only. Check your connection.'))};
 let LAY=loadLay(),EDITL=false,DRAGW=null;
 const GRIP='<path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/>';
 // Moves the others out of the way smoothly: measure, change, then animate from the old place to the new one.
@@ -279,7 +284,7 @@ const openPop=k=>{POP=k;POPNEW=true;if(k==='calls')CALDAY=0;renderDash()};
 const closePop=()=>{POP=null;renderDash()};
 dash.addEventListener('click',e=>{
   if(e.target.closest('[data-layedit]')){EDITL=!EDITL;POP=null;renderDash();return}
-  if(e.target.closest('[data-layreset]')){LAY=defLay();saveLay();renderDash();return}
+  if(e.target.closest('[data-layreset]')){if(confirm('Put every section back to the default place and size? Your saved layout will be replaced.')){LAY=defLay();saveLay();renderDash()}return}
   if(EDITL&&e.target.closest('.td-grid'))return;
   const tmb=e.target.closest('[data-timer]');if(tmb){tmDo(tmb.dataset.timer);return}
   const tb=e.target.closest('[data-ttab]');if(tb){TTAB=tb.dataset.ttab;renderDash();return}
@@ -348,6 +353,31 @@ document.addEventListener('pointerdown',e=>{if(QC_OPEN&&!qc.contains(e.target))q
 setInterval(async()=>{if(qc.hidden||document.visibilityState!=='visible'||!TTL_STORE.refreshChat)return;const sig=()=>qcMsgs().map(m=>m.id).join(),before=sig(),rb=JSON.stringify(qcRead());await TTL_STORE.refreshChat().catch(()=>null);
   if(sig()===before){if(QC_OPEN&&JSON.stringify(qcRead())!==rb)qcPaint(true);qcBadge();if(!qcTags().length)qcBanner(null);return}
   if(QC_OPEN){qcPaint(true);qcSeen()}else{qcBadge();const t=qcTags().filter(m=>!QC_TOLD.has(m.id));if(t.length){t.forEach(m=>QC_TOLD.add(m.id));qcBanner(t[t.length-1])}}},4000);
+
+/* ---------- Manage team (head coach only): remove a coach, with two confirmations ---------- */
+const mt=document.createElement('div');mt.className='mt-root';mt.hidden=true;app.appendChild(mt);
+let MT={step:0,name:''};
+function mtRender(){const list=TTL_STORE.coaches().filter(n=>n!==OWNER),n=MT.name,cnt=n?TTL_STORE.clientsOf(n):0;let body;
+  if(MT.step===0)body=`<h2 id="mtT">Manage team</h2><p class="mt-sub">Only you can remove a coach. New coaches are added by creating their login in Supabase.</p>
+    <div class="mt-list">${list.length?list.map(x=>`<div class="mt-row"><span class="td-ini">${esc(x[0])}</span><span class="mt-n"><b>${esc(x)}</b><em>${TTL_STORE.clientsOf(x)} active clients</em></span><button type="button" class="mt-del" data-mtdel="${esc(x)}">Delete</button></div>`).join(''):'<p class="mt-sub">There are no other coaches.</p>'}</div>
+    <div class="mt-f"><button type="button" class="mt-b" data-mtclose>Close</button></div>`;
+  else if(MT.step===1&&cnt>0)body=`<h2 id="mtT">${esc(n)} still has ${cnt} active client${cnt===1?'':'s'}</h2><p class="mt-sub">Move ${cnt===1?'that client':'those clients'} to another coach on the Sheet first, or move them to Expired and hold. Then come back and delete ${esc(n)}.</p>
+    <div class="mt-f"><button type="button" class="mt-b" data-mtback>Back</button></div>`;
+  else if(MT.step===1)body=`<h2 id="mtT">Delete ${esc(n)}?</h2><p class="mt-sub">${esc(n)} will be removed from the Sheet, the Dashboard, the team chat and every coach list, and their saved Dashboard layout is deleted. Client records are not touched.</p>
+    <div class="mt-f"><button type="button" class="mt-b" data-mtback>Cancel</button><button type="button" class="mt-b warn" data-mtnext>Continue</button></div>`;
+  else body=`<h2 id="mtT">Are you sure?</h2><p class="mt-sub">This is the final step. Type <b>${esc(n)}</b> below to delete this coach.</p>
+    <input class="mt-in" id="mtIn" autocomplete="off" aria-label="Type the coach's name to confirm" placeholder="${esc(n)}">
+    <div class="mt-f"><button type="button" class="mt-b" data-mtback>Cancel</button><button type="button" class="mt-b danger" data-mtgo disabled>Delete ${esc(n)}</button></div>`;
+  mt.innerHTML=`<div class="mt-scrim" data-mtclose></div><div class="mt-box" role="dialog" aria-modal="true" aria-labelledby="mtT">${body}</div>`;
+  const inp=mt.querySelector('#mtIn');if(inp)inp.focus()}
+const mtOpen=()=>{if(!IS_OWNER)return;MT={step:0,name:''};mt.hidden=false;mtRender()},mtClose=()=>{mt.hidden=true;mt.innerHTML=''};
+mt.addEventListener('click',e=>{const t=e.target;if(t.closest('[data-mtclose]'))return mtClose();if(t.closest('[data-mtback]')){MT={step:0,name:''};return mtRender()}
+  const d=t.closest('[data-mtdel]');if(d){MT={step:1,name:d.dataset.mtdel};return mtRender()}
+  if(t.closest('[data-mtnext]')){MT.step=2;return mtRender()}
+  if(t.closest('[data-mtgo]')){const n=MT.name;TTL_STORE.removeCoach(n).then(()=>{toast(n+' deleted. Remove their login in Supabase too, under Authentication → Users.');if(window.XS)XS.refresh();if(qc.firstChild)qcRender()}).catch(()=>toast('Could not delete '+n+'. Check your connection.'));mtClose()}});
+mt.addEventListener('input',e=>{if(e.target.id==='mtIn')mt.querySelector('[data-mtgo]').disabled=e.target.value.trim().toLowerCase()!==MT.name.toLowerCase()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!mt.hidden)mtClose()});
+home.addEventListener('click',e=>{if(e.target.id==='thTeamBtn')mtOpen()});
 
 /* ---------- Routing: #home, #portal, #dashboard, #sheet ---------- */
 let FROM='home';

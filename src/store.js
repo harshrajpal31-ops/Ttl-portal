@@ -44,7 +44,7 @@ const chatFrom = rows => rows.filter(x => x.key.startsWith('chat:') && x.value &
 const seenFrom = rows => Object.fromEntries(rows.filter(x => x.key.startsWith('chat_seen:') && x.value).map(x => [x.key.slice(10), x.value.at || '']));
 
 export function createStore(who) {
-  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {}, chat: [], seen: {}, team: [] };
+  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {}, chat: [], seen: {}, team: [], removed: [], layouts: {} };
   const L = {}; // listeners by key: 'clients', 'edits', 'feed', 'meta/sync', 'settings/rules', 'edits/<id>', 'feed/<day>'
   const savedFeed = new Set(); // feed item timestamps already in change_log
 
@@ -125,7 +125,10 @@ export function createStore(who) {
     S.comments = Object.fromEntries(settings.filter(x => x.key.startsWith('comment:')).map(x => [x.key.slice(8), x.value || {}]));
     S.chat = chatFrom(settings);                                                    // quick chat: today's messages only
     S.seen = { ...seenFrom(settings), ...(S.seen && S.seen[who] > (seenFrom(settings)[who] || '') ? { [who]: S.seen[who] } : {}) }; // how far each coach has read, shared across their devices
-    S.team = (settings.find(x => x.key === 'coaches') || {}).value || []; if (!Array.isArray(S.team)) S.team = [];             // teammates added from Home
+    S.team = (settings.find(x => x.key === 'coaches') || {}).value || []; if (!Array.isArray(S.team)) S.team = [];
+    S.removed = (settings.find(x => x.key === 'coaches_removed') || {}).value || []; if (!Array.isArray(S.removed)) S.removed = [];
+    // Each coach's saved Dashboard layout, so it is the same on every device and never resets.
+    S.layouts = Object.fromEntries(settings.filter(x => x.key.startsWith('layout:') && Array.isArray(x.value)).map(x => [x.key.slice(7), x.value]));             // teammates added from Home
     const tr = (settings.find(x => x.key === 'tag_rules') || {}).value;
     S.rules = tr ? Object.fromEntries(Object.entries(RULE_KEYS).filter(([, k]) => tr[k] != null).map(([d, k]) => [d, +tr[k]])) : undefined;
   }
@@ -325,14 +328,37 @@ export function createStore(who) {
     S.seen = { ...S.seen, [who]: at };
     return enqueue(() => must(db.from('settings').upsert({ key: 'chat_seen:' + who, value: { at } })));
   }
+  const clientsOf = name => Object.values(S.rows).filter(r => r.client.coach === name && !r.client.expired_at).length;
   const coaches = () => {
     const all = [...new Set(['Harsh', 'Shrutika', ...S.team, ...Object.values(S.rows).map(r => r.client.coach)].filter(Boolean))];
-    return all.sort((a, b) => (a === 'Harsh' ? -1 : b === 'Harsh' ? 1 : 0));
+    // A deleted coach stays hidden, unless clients are still assigned to them (those clients must never become invisible).
+    return all.filter(n => n === 'Harsh' || !S.removed.includes(n) || clientsOf(n) > 0).sort((a, b) => (a === 'Harsh' ? -1 : b === 'Harsh' ? 1 : 0));
   };
   function addCoach(name) {
     S.team = [...new Set([...S.team, name])];
-    const value = S.team;
-    return enqueue(() => must(db.from('settings').upsert({ key: 'coaches', value })));
+    const was = S.removed.includes(name);
+    S.removed = S.removed.filter(n => n !== name);
+    const team = S.team, removed = S.removed;
+    return enqueue(async () => {
+      await must(db.from('settings').upsert({ key: 'coaches', value: team }));
+      if (was) await must(db.from('settings').upsert({ key: 'coaches_removed', value: removed }));
+    });
+  }
+  // Head coach only (the screen enforces it). Refused while the coach still has active clients.
+  function removeCoach(name) {
+    if (name === 'Harsh' || clientsOf(name) > 0) return Promise.reject(new Error('has clients'));
+    S.team = S.team.filter(n => n !== name);
+    S.removed = [...new Set([...S.removed, name])];
+    const team = S.team, removed = S.removed;
+    return enqueue(async () => {
+      await must(db.from('settings').upsert({ key: 'coaches', value: team }));
+      await must(db.from('settings').upsert({ key: 'coaches_removed', value: removed }));
+      await db.from('settings').delete().in('key', ['layout:' + name, 'chat_seen:' + name]);
+    });
+  }
+  function saveLayout(name, value) {
+    S.layouts = { ...S.layouts, [name]: value };
+    return enqueue(() => must(db.from('settings').upsert({ key: 'layout:' + name, value })));
   }
 
   async function writeHist(id, s, name) {
@@ -428,6 +454,11 @@ export function createStore(who) {
     refreshChat,
     coaches,
     addCoach,
+    removeCoach,
+    removed: () => S.removed.slice(),
+    clientsOf,
+    layout: name => S.layouts[name] || null,
+    saveLayout,
     addClient,
     // Stand-in for the Sheet (window.XS) until step 4: only the calorie sync from the profile uses it.
     sheetApply(items) {

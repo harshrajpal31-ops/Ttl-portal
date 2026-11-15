@@ -24,23 +24,27 @@ function loginScreen() {
   };
 }
 
-// Each coach has their own login. Their name is the first word of their email: shrutika@... is Shrutika.
+// Two ways of knowing who is using the portal:
+//   EMAIL_LOGIN = false (now, while testing): one shared login, then a screen to pick your name.
+//   EMAIL_LOGIN = true  (the plan for go-live): every coach has their own login and their name is the first word of their email (shrutika@... is Shrutika).
+const EMAIL_LOGIN = false;
 const OWNER = 'Harsh';
 const nameOf = email => { const w = String(email || '').split('@')[0].split(/[^A-Za-z]/)[0]; return w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ''; };
 let LOGIN = '';
-// Only the head coach can look at the portal as someone else (for testing and checking). Everyone else goes straight in as themselves.
-const whoNow = () => (LOGIN === OWNER && getWho()) || LOGIN;
-const picking = () => LOGIN === OWNER && localStorage.getItem('ttl-pick') === '1';
+const whoNow = () => EMAIL_LOGIN ? ((LOGIN === OWNER && getWho()) || LOGIN) : getWho();
+const picking = () => EMAIL_LOGIN ? (LOGIN === OWNER && localStorage.getItem('ttl-pick') === '1') : (!getWho() || localStorage.getItem('ttl-pick') === '1');
 
 async function whoScreen() {
-  let team = [];
-  try { const { data } = await db.from('settings').select('value').eq('key', 'coaches').maybeSingle(); if (data && Array.isArray(data.value)) team = data.value; } catch (_) {}
-  const names = [...new Set([OWNER, 'Shrutika', ...team])];
+  let team = [], gone = [];
+  try { const { data } = await db.from('settings').select('key,value').in('key', ['coaches', 'coaches_removed']);
+    for (const r of data || []) if (Array.isArray(r.value)) { if (r.key === 'coaches') team = r.value; else gone = r.value; } } catch (_) {}
+  const names = [...new Set([OWNER, 'Shrutika', ...team])].filter(n => n === OWNER || !gone.includes(n));
   const safe = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  app.innerHTML = shell(`
-    <h1>View the portal as</h1><p class="muted">Only you see this screen. Changes are logged under the name you pick.</p>
-    ${names.map((n, i) => `<button ${i ? 'class="ghost" ' : ''}data-w="${safe(n)}">${safe(n)}</button>`).join('')}`);
-  app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(b.dataset.w === OWNER ? '' : b.dataset.w); localStorage.removeItem('ttl-pick'); render(); });
+  app.innerHTML = shell(EMAIL_LOGIN
+    ? `<h1>View the portal as</h1><p class="muted">Only you see this screen. Changes are logged under the name you pick.</p>`
+    : `<h1>Who's using the portal?</h1><p class="muted">Your changes are logged under this name. You can switch it later.</p>`)
+    .replace('</div></div>', names.map((n, i) => `<button ${i ? 'class="ghost" ' : ''}data-w="${safe(n)}">${safe(n)}</button>`).join('') + '</div></div>');
+  app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(EMAIL_LOGIN && b.dataset.w === OWNER ? '' : b.dataset.w); localStorage.removeItem('ttl-pick'); render(); });
 }
 
 let started = false;
@@ -62,11 +66,16 @@ async function portal() {
   document.title = 'Coach Portal';
   app.innerHTML = portalHTML;
   document.getElementById('whoName').textContent = who;
-  window.TTL_CAN_SWITCH = LOGIN === OWNER;
+  window.TTL_CAN_SWITCH = !EMAIL_LOGIN || LOGIN === OWNER;
   const sw = document.getElementById('whoSwitch');
   if (window.TTL_CAN_SWITCH) sw.onclick = () => { localStorage.setItem('ttl-pick', '1'); location.reload(); };
   else { if (sw.nextSibling && sw.nextSibling.nodeType === 3) sw.nextSibling.remove(); sw.remove(); }
-  if (store.coaches && !store.coaches().includes(who)) store.addCoach(who).catch(() => {}); // a new login joins the team lists the first time they open the portal
+  if (EMAIL_LOGIN && store.removed().includes(LOGIN)) { // a deleted coach cannot get in, even if their login still exists in Supabase
+    app.innerHTML = shell(`<h1>Access removed</h1><p class="muted">This login is no longer part of the Twice the Lean portal.</p><button id="bye">Log out</button>`);
+    document.getElementById('bye').onclick = async () => { await db.auth.signOut(); location.reload(); };
+    return;
+  }
+  if (EMAIL_LOGIN && !store.coaches().includes(who)) store.addCoach(who).catch(() => {}); // a new login joins the team lists the first time they open the portal
   document.getElementById('logOut').onclick = async () => { await db.auth.signOut(); location.reload(); };
 
   // Excel export for the Sheet; the library loads only when someone exports.
@@ -93,7 +102,7 @@ async function render() {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { if (started) location.reload(); return loginScreen(); }
   LOGIN = nameOf(session.user.email);
-  if (!LOGIN) { app.innerHTML = shell(`<h1>This login has no name</h1><p class="muted">The email must start with the coach's first name, like shrutika@…</p>`); return; }
+  if (EMAIL_LOGIN && !LOGIN) { app.innerHTML = shell(`<h1>This login has no name</h1><p class="muted">The email must start with the coach's first name, like shrutika@…</p>`); return; }
   if (picking() && !started) return whoScreen();
   portal();
 }

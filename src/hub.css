@@ -292,6 +292,24 @@ button.td-ltr{cursor:pointer}button.td-ltr:hover{background:var(--ground)}
 .td-lv[class*=wk]{background:#FDE3D2;color:#9A3C00}.td-lv.wk12{background:#FBD9D5;color:#A3231A}
 .td-expg .td-ltr{grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,.7fr)}
 
+/* Manage team dialog */
+.mt-root{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:16px}
+.mt-root[hidden]{display:none}
+.mt-scrim{position:absolute;inset:0;background:rgba(20,26,46,.45)}
+.mt-box{position:relative;width:min(440px,100%);max-height:calc(100dvh - 32px);overflow-y:auto;background:var(--card);border-radius:22px;padding:22px;box-shadow:0 30px 70px -10px rgba(20,32,73,.5);animation:tdpop .26s cubic-bezier(.2,.85,.25,1)}
+.mt-box h2{margin:0 0 6px;font-size:21px}
+.mt-sub{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--label-2)}.mt-sub b{color:var(--label)}
+.mt-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.mt-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:var(--fill)}
+.mt-n{flex:1;min-width:0;display:flex;flex-direction:column}.mt-n b{font-size:15px}.mt-n em{font-style:normal;font-size:12.5px;color:var(--label-2)}
+.mt-del{border:0;border-radius:10px;min-height:40px;padding:0 14px;font:inherit;font-size:14px;font-weight:600;background:#FCE4E1;color:#B3261E;cursor:pointer}
+.mt-in{width:100%;box-sizing:border-box;min-height:46px;border:1.5px solid var(--sep);border-radius:12px;padding:0 12px;font:inherit;font-size:16px;margin-bottom:16px;background:var(--card);color:var(--label)}
+.mt-in:focus-visible{outline:2px solid #D92D20;outline-offset:1px}
+.mt-f{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.mt-b{border:0;border-radius:12px;min-height:44px;padding:0 18px;font:inherit;font-size:15px;font-weight:600;background:var(--fill);color:var(--label);cursor:pointer}
+.mt-b.warn{background:#FDE3D2;color:#9A3C00}.mt-b.danger{background:#D92D20;color:#fff}.mt-b:disabled{opacity:.4;cursor:default}
+@media (prefers-reduced-motion:reduce){.mt-box{animation:none}}
+
 @media (min-width:1100px){
   .td-wrap{max-width:none;padding-inline:max(32px,env(safe-area-inset-left,0px))}
   .td-edit{display:inline-flex}
