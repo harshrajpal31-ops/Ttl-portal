@@ -295,40 +295,47 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&POP&&!dash.hidden)c
 
 /* ---------- Quick chat: a message button in the top-right corner. The whole team talks here; it clears itself after 24 hours.
    @Name tags a teammate: their button rings and a banner tells them, on whichever screen they are. ---------- */
+const QC_EMO=['😀','😂','🥹','😊','😍','😎','🤔','😅','😴','😤','🙏','👍','👎','👏','💪','🔥','✅','❌','⭐','🎉','❤️','💯','👀','🙌','🤝','📞','📸','🥗','🍎','🏋️','⏰','📌','⚠️','🚀','😬','🤷'];
 const QC_COL=['#3F59A7','#E0559B','#1E9E6A','#D9822B','#7A5AF8','#0F9BB3'];
 const qc=document.createElement('div');qc.className='qc-root';qc.hidden=true;app.appendChild(qc);
-const QKEY='ttl-chat-seen-'+WHO;let QC_SEEN=''; try{QC_SEEN=localStorage.getItem(QKEY)||''}catch(_){}
+const qcRead=()=>(TTL_STORE.chatSeen&&TTL_STORE.chatSeen())||{}; // how far each coach has read, kept in the database so all their devices agree
 let QC_OPEN=false,QC_TOLD=new Set(),QC_DRAFT='';
 const qcTeam=()=>TTL_STORE.coaches?TTL_STORE.coaches():[WHO];
 const qcMsgs=()=>(TTL_STORE.chat&&TTL_STORE.chat())||[];
-const qcNew=()=>qcMsgs().filter(m=>m.by!==WHO&&m.at>QC_SEEN);
+const qcNew=()=>{const mine=qcRead()[WHO]||'';return qcMsgs().filter(m=>m.by!==WHO&&m.at>mine)};
 const qcTags=()=>qcNew().filter(m=>(m.to||[]).includes(WHO));
 const qcTime=at=>new Date(at).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});
 const qcCol=n=>QC_COL[Math.max(0,qcTeam().indexOf(n))%QC_COL.length];
 // @Name becomes a bold tag; only real teammates (or @all) count.
 function qcFind(text){const team=qcTeam(),to=new Set();String(text).replace(/@([A-Za-z][A-Za-z'-]*)/g,(m,n)=>{const k=n.toLowerCase();if(k==='all'||k==='team'||k==='everyone')team.forEach(x=>x!==WHO&&to.add(x));else{const hit=team.find(x=>x.toLowerCase()===k);if(hit&&hit!==WHO)to.add(hit)}return m});return [...to]}
 const qcText=t=>esc(t).replace(/@([A-Za-z][A-Za-z'-]*)/g,(m,n)=>{const k=n.toLowerCase();return ['all','team','everyone'].includes(k)||qcTeam().some(x=>x.toLowerCase()===k)?`<b class="qc-at">${m}</b>`:m});
+// Under your latest message, like a read receipt: who has seen it so far.
+function qcSeenBy(m){const R=qcRead(),who=qcTeam().filter(n=>n!==WHO&&(R[n]||'')>=m.at);return who.length?`<b class="qc-seen">Seen by ${esc(who.length>2?who.slice(0,-1).join(', ')+' and '+who[who.length-1]:who.join(' and '))}</b>`:'Sent'}
 function qcList(){const M=qcMsgs();if(!M.length)return `<div class="qc-empty"><span aria-hidden="true">💬</span><b>No messages yet</b><p>Say something to the team. Type @ and a name to get someone's attention.</p></div>`;
+  const myLast=[...M].reverse().find(m=>m.by===WHO);
   return M.map((m,i)=>{const me=m.by===WHO,prev=M[i-1],first=!prev||prev.by!==m.by||Date.parse(m.at)-Date.parse(prev.at)>10*6e4,next=M[i+1],last=!next||next.by!==m.by||Date.parse(next.at)-Date.parse(m.at)>10*6e4,tag=(m.to||[]).includes(WHO);
-    return `${first&&!me?`<div class="qc-who" style="--c:${qcCol(m.by)}">${esc(m.by)}</div>`:''}<div class="qc-line${me?' me':''}${last?' last':''}${tag?' tag':''}">${!me?`<i class="qc-av" style="--c:${qcCol(m.by)}">${last?esc(m.by[0]):''}</i>`:''}<div class="qc-b" ${me?'':`style="--c:${qcCol(m.by)}"`}>${qcText(m.t)}</div></div>${last?`<div class="qc-t${me?' me':''}">${qcTime(m.at)}</div>`:''}`}).join('')}
+    return `${first&&!me?`<div class="qc-who" style="--c:${qcCol(m.by)}">${esc(m.by)}</div>`:''}<div class="qc-line${me?' me':''}${last?' last':''}${tag?' tag':''}">${!me?`<i class="qc-av" style="--c:${qcCol(m.by)}">${last?esc(m.by[0]):''}</i>`:''}<div class="qc-b" ${me?'':`style="--c:${qcCol(m.by)}"`}>${qcText(m.t)}</div></div>${last?`<div class="qc-t${me?' me':''}">${qcTime(m.at)}${me&&m===myLast?' · '+qcSeenBy(m):''}</div>`:''}`}).join('')}
 function qcBadge(){const btn=qc.querySelector('.qc-btn');if(!btn)return;const n=qcNew().length,t=qcTags().length,em=btn.querySelector('em');em.hidden=!n||QC_OPEN;em.textContent=t?'@':n;btn.classList.toggle('new',!!n&&!QC_OPEN);btn.classList.toggle('tag',!!t&&!QC_OPEN);
   btn.setAttribute('aria-label',t?'Quick chat: someone tagged you':n?`Quick chat: ${n} new message${n===1?'':'s'}`:'Quick chat')}
-function qcSeen(){const M=qcMsgs();if(!M.length)return;const at=M[M.length-1].at;if(at>QC_SEEN){QC_SEEN=at;try{localStorage.setItem(QKEY,at)}catch(_){}}qcBadge();qcBanner(null)}
+function qcSeen(){const M=qcMsgs();if(M.length&&TTL_STORE.setSeen)TTL_STORE.setSeen(M[M.length-1].at).catch(()=>{});qcBadge();qcBanner(null)}
 function qcBanner(m){let b=qc.querySelector('.qc-ban');if(!m){if(b)b.remove();return}if(!b){b=document.createElement('button');b.type='button';b.className='qc-ban';qc.appendChild(b)}
   b.innerHTML=`<i class="qc-av" style="--c:${qcCol(m.by)}">${esc(m.by[0])}</i><span><b>${esc(m.by)} tagged you</b><span>${esc(m.t.length>90?m.t.slice(0,90)+'…':m.t)}</span></span>`}
 function qcPaint(keepScroll){const box=qc.querySelector('.qc-msgs');if(!box)return;const atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<60;box.innerHTML=qcList();if(!keepScroll||atEnd)box.scrollTop=box.scrollHeight}
 function qcRender(){qc.innerHTML=`<button type="button" class="qc-btn" aria-expanded="false" aria-label="Quick chat"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.38 1.3 4.5 3.36 5.96-.14 1.2-.62 2.3-1.36 3.2-.2.24 0 .6.3.56 2.02-.24 3.6-.94 4.72-1.72.94.24 1.94.38 2.98.38 5.52 0 10-3.58 10-8.38S17.52 3 12 3Z"/></svg><em hidden></em></button>
-  <section class="qc-panel" role="dialog" aria-label="Quick chat"><header class="qc-h"><div><b>Quick chat</b><span>${qcTeam().map(esc).join(', ')} · clears after 24 hours</span></div><button type="button" class="qc-x" aria-label="Close chat">${svg(X_IC,13)}</button></header>
+  <section class="qc-panel" role="dialog" aria-label="Quick chat"><header class="qc-h"><div><b>Quick chat</b><span>${qcTeam().map(esc).join(', ')} · clears every night at 12 am</span></div><button type="button" class="qc-x" aria-label="Close chat">${svg(X_IC,13)}</button></header>
     <div class="qc-msgs" aria-live="polite"></div>
     <div class="qc-ats">${qcTeam().filter(n=>n!==WHO).map(n=>`<button type="button" data-at="${esc(n)}">@${esc(n)}</button>`).join('')}${qcTeam().length>2?'<button type="button" data-at="all">@all</button>':''}</div>
-    <form class="qc-form"><textarea class="qc-in" rows="1" maxlength="1000" placeholder="Message the team" aria-label="Message"></textarea><button type="submit" class="qc-send" aria-label="Send" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 11l6-6 6 6"/></svg></button></form></section>`;
+    <div class="qc-emo" hidden>${QC_EMO.map(x=>`<button type="button" data-emo="${x}">${x}</button>`).join('')}</div>
+    <form class="qc-form"><button type="button" class="qc-eb" aria-label="Emoji" aria-expanded="false">😊</button><textarea class="qc-in" rows="1" maxlength="1000" placeholder="Message the team" aria-label="Message"></textarea><button type="submit" class="qc-send" aria-label="Send" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 11l6-6 6 6"/></svg></button></form></section>`;
   qcPaint();qcBadge()}
 function qcSet(open){QC_OPEN=open;const p=qc.querySelector('.qc-panel'),b=qc.querySelector('.qc-btn');if(!p)return;p.classList.toggle('open',open);b.setAttribute('aria-expanded',open);
   if(open){qcPaint();qcSeen();const inp=qc.querySelector('.qc-in');inp.value=QC_DRAFT;qcGrow(inp);if(matchMedia('(hover:hover)').matches)setTimeout(()=>inp.focus(),120)}else qcBadge()}
 function qcGrow(inp){inp.style.height='auto';inp.style.height=Math.min(120,inp.scrollHeight)+'px';qc.querySelector('.qc-send').disabled=!inp.value.trim()}
-function qcSend(){const inp=qc.querySelector('.qc-in'),text=inp.value.trim();if(!text)return;inp.value='';QC_DRAFT='';qcGrow(inp);
+function qcSend(){const inp=qc.querySelector('.qc-in'),text=inp.value.trim();if(!text)return;qc.querySelector('.qc-emo').hidden=true;inp.value='';QC_DRAFT='';qcGrow(inp);
   TTL_STORE.sendChat(text,qcFind(text)).catch(()=>toast('Message not sent. Check your connection.'));qcPaint();qcSeen();inp.focus()}
 qc.addEventListener('click',e=>{if(e.target.closest('.qc-btn')||e.target.closest('.qc-ban')){qcSet(!QC_OPEN||!!e.target.closest('.qc-ban'));return}if(e.target.closest('.qc-x')){qcSet(false);return}
+  const eb=e.target.closest('.qc-eb');if(eb){const p=qc.querySelector('.qc-emo');p.hidden=!p.hidden;eb.setAttribute('aria-expanded',!p.hidden);return}
+  const em=e.target.closest('[data-emo]');if(em){const inp=qc.querySelector('.qc-in'),a=inp.selectionStart??inp.value.length,b=inp.selectionEnd??a;inp.value=inp.value.slice(0,a)+em.dataset.emo+inp.value.slice(b);const c=a+em.dataset.emo.length;QC_DRAFT=inp.value;qcGrow(inp);inp.focus();inp.setSelectionRange(c,c);return}
   const a=e.target.closest('[data-at]');if(a){const inp=qc.querySelector('.qc-in');inp.value=(inp.value&&!/\s$/.test(inp.value)?inp.value+' ':inp.value)+'@'+a.dataset.at+' ';QC_DRAFT=inp.value;qcGrow(inp);inp.focus()}});
 qc.addEventListener('submit',e=>{e.preventDefault();qcSend()});
 qc.addEventListener('input',e=>{if(e.target.classList.contains('qc-in')){QC_DRAFT=e.target.value;qcGrow(e.target)}});
@@ -336,8 +343,8 @@ qc.addEventListener('keydown',e=>{if(e.target.classList&&e.target.classList.cont
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&QC_OPEN&&!qc.hidden)qcSet(false)});
 document.addEventListener('pointerdown',e=>{if(QC_OPEN&&!qc.contains(e.target))qcSet(false)});
 // New messages arrive every few seconds. A tag shows a banner once and keeps the button ringing until the chat is opened.
-setInterval(async()=>{if(qc.hidden||document.visibilityState!=='visible'||!TTL_STORE.refreshChat)return;const before=qcMsgs().map(m=>m.id).join();await TTL_STORE.refreshChat().catch(()=>null);
-  if(qcMsgs().map(m=>m.id).join()===before){qcBadge();return}
+setInterval(async()=>{if(qc.hidden||document.visibilityState!=='visible'||!TTL_STORE.refreshChat)return;const sig=()=>qcMsgs().map(m=>m.id).join(),before=sig(),rb=JSON.stringify(qcRead());await TTL_STORE.refreshChat().catch(()=>null);
+  if(sig()===before){if(QC_OPEN&&JSON.stringify(qcRead())!==rb)qcPaint(true);qcBadge();if(!qcTags().length)qcBanner(null);return}
   if(QC_OPEN){qcPaint(true);qcSeen()}else{qcBadge();const t=qcTags().filter(m=>!QC_TOLD.has(m.id));if(t.length){t.forEach(m=>QC_TOLD.add(m.id));qcBanner(t[t.length-1])}}},4000);
 
 /* ---------- Home: the team, and adding a teammate (head coach only) ---------- */

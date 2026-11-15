@@ -253,7 +253,14 @@ button.td-ltr{cursor:pointer}button.td-ltr:hover{background:var(--ground)}
 .qc-empty span{font-size:40px}.qc-empty b{color:#3C3C43;font-size:16px}.qc-empty p{margin:0;font-size:13.5px;line-height:1.4;max-width:240px}
 .qc-ats{display:flex;gap:6px;padding:4px 12px 0;overflow-x:auto;scrollbar-width:none}
 .qc-ats button{flex:none;border:0;border-radius:999px;padding:5px 11px;min-height:30px;font:inherit;font-size:13px;font-weight:600;background:#EAF2FF;color:#0A60FF;cursor:pointer}
-.qc-form{display:flex;align-items:flex-end;gap:8px;padding:8px 10px 10px 12px}
+.qc-form{display:flex;align-items:flex-end;gap:6px;padding:8px 10px 10px 8px}
+.qc-eb{flex:none;width:38px;height:38px;border:0;border-radius:50%;background:transparent;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0;transition:transform .12s,background .15s}
+.qc-eb:hover,.qc-eb[aria-expanded=true]{background:#EFEFF4}.qc-eb:active{transform:scale(.9)}
+.qc-emo{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:2px;padding:8px 10px 2px;border-top:1px solid #E5E5EA;animation:qcin .18s ease-out}
+.qc-emo[hidden]{display:none}
+.qc-emo button{border:0;background:transparent;border-radius:8px;font-size:21px;line-height:1;height:36px;cursor:pointer;padding:0}
+.qc-emo button:hover{background:#EFEFF4}
+.qc-seen{font-weight:600;color:#0A84FF}
 .qc-in{flex:1 1 auto;min-height:38px;max-height:120px;box-sizing:border-box;border:1px solid #D1D1D6;border-radius:19px;padding:8px 14px;font:inherit;font-size:16px;line-height:1.3;resize:none;outline:0;background:#fff;color:#000}
 .qc-in:focus-visible{border-color:#0A84FF;box-shadow:0 0 0 3px rgba(10,132,255,.2)}
 .qc-send{flex:none;width:38px;height:38px;border:0;border-radius:50%;background:#0A84FF;color:#fff;display:grid;place-items:center;cursor:pointer;transition:transform .12s,opacity .15s}
