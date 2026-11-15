@@ -293,45 +293,52 @@ dash.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&POP&&!dash.hidden)closePop()});
 
-/* ---------- Team notes: a pin in the top-right corner. Hover (or tap) opens the notes: one neon page per coach, swipe between them. ---------- */
-const SN_COL=['#F4FF4A','#FF8BD9','#6CFFB0','#72F2FF','#FFB45E','#C9A2FF'];
-const snRoot=document.createElement('div');snRoot.className='sn-root';snRoot.hidden=true;app.appendChild(snRoot);
-const SKEY2='ttl-note-seen-'+WHO;let SN_SEEN={};try{SN_SEEN=JSON.parse(localStorage.getItem(SKEY2)||'{}')}catch(_){}
-let SN_OPEN=false,SN_STICK=false,SN_T=0,SN_HIDE=0,SN_DIRTY=0,SN_PAGE=0;
-const snPeople=()=>{const all=TTL_STORE.coaches?TTL_STORE.coaches():[WHO];return [WHO,...all.filter(n=>n!==WHO)]};
-const snNotes=()=>(TTL_STORE.note&&TTL_STORE.note())||{};
-const snUnread=()=>snPeople().filter(n=>n!==WHO&&snNotes()[n]&&snNotes()[n].t&&(snNotes()[n].at||'')>(SN_SEEN[n]||''));
-const snWhen=at=>at?new Date(at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'';
-function snMark(name){const n=snNotes()[name];if(!n||name===WHO||!SN_OPEN)return;if((n.at||'')>(SN_SEEN[name]||'')){SN_SEEN[name]=n.at;try{localStorage.setItem(SKEY2,JSON.stringify(SN_SEEN))}catch(_){}snBadge()}}
-function snBadge(){const u=snUnread(),pin=snRoot.querySelector('.sn-pinb');if(!pin)return;pin.classList.toggle('new',u.length>0);const b=pin.querySelector('em');b.hidden=!u.length;b.textContent=u.length;
-  pin.setAttribute('aria-label',u.length?`Team notes: ${u.join(' and ')} wrote something new`:'Team notes');
-  snRoot.querySelectorAll('.sn-dot').forEach(d=>d.classList.toggle('new',u.includes(d.dataset.name)))}
-function snRender(){const P=snPeople(),N=snNotes(),all=TTL_STORE.coaches?TTL_STORE.coaches():P;
-  snRoot.innerHTML=`<button type="button" class="sn-pinb" aria-expanded="${SN_OPEN}"><span aria-hidden="true">📌</span><em hidden></em></button>
-  <div class="sn-pad${SN_OPEN?' open':''}" role="dialog" aria-label="Team notes">
-    <div class="sn-pages">${P.map(n=>{const c=SN_COL[Math.max(0,all.indexOf(n))%SN_COL.length],x=N[n]||{},me=n===WHO;
-      return `<section class="sn-page" data-name="${esc(n)}" style="--nc:${c}"><header><b>${esc(n)}${me?' <span>(you)</span>':''}</b><small>${x.t&&x.at?snWhen(x.at):''}</small></header>
-        ${me?`<textarea class="sn-tx" id="snTx" placeholder="Write a note for the team…" aria-label="Your note">${esc(x.t||'')}</textarea>`:`<div class="sn-tx sn-ro" tabindex="0">${x.t?esc(x.t):`<span class="sn-mt">Nothing from ${esc(n)} yet.</span>`}</div>`}</section>`}).join('')}</div>
-    <footer class="sn-foot"><button type="button" class="sn-arw" data-sn="-1" aria-label="Previous note">‹</button><div class="sn-dots">${P.map((n,i)=>`<button type="button" class="sn-dot" data-sni="${i}" data-name="${esc(n)}" style="--nc:${SN_COL[Math.max(0,all.indexOf(n))%SN_COL.length]}" aria-label="${esc(n)}'s note"></button>`).join('')}</div><button type="button" class="sn-arw" data-sn="1" aria-label="Next note">›</button></footer></div>`;
-  snBadge();snGo(SN_PAGE,true)}
-function snGo(i,instant){const pg=snRoot.querySelector('.sn-pages');if(!pg)return;const n=pg.children.length;SN_PAGE=Math.max(0,Math.min(n-1,i));pg.scrollTo({left:pg.clientWidth*SN_PAGE,behavior:instant?'auto':'smooth'});snDots()}
-function snDots(){snRoot.querySelectorAll('.sn-dot').forEach((d,i)=>d.classList.toggle('on',i===SN_PAGE));const p=snPeople()[SN_PAGE];if(p)snMark(p)}
-function snSet(open){if(open===SN_OPEN)return;SN_OPEN=open;const pad=snRoot.querySelector('.sn-pad');if(pad)pad.classList.toggle('open',open);const pin=snRoot.querySelector('.sn-pinb');if(pin)pin.setAttribute('aria-expanded',open);
-  if(open){const u=snUnread();if(u.length)snGo(snPeople().indexOf(u[0]),true);else snDots()}else SN_STICK=false}
-snRoot.addEventListener('mouseenter',()=>{clearTimeout(SN_HIDE);snSet(true)});
-snRoot.addEventListener('mouseleave',()=>{clearTimeout(SN_HIDE);SN_HIDE=setTimeout(()=>{if(!SN_STICK&&!snRoot.contains(document.activeElement))snSet(false)},320)});
-snRoot.addEventListener('focusout',()=>setTimeout(()=>{if(!SN_STICK&&!snRoot.matches(':hover')&&!snRoot.contains(document.activeElement))snSet(false)},0));
-snRoot.addEventListener('click',e=>{if(e.target.closest('.sn-pinb')){SN_STICK=!SN_STICK;snSet(SN_STICK||snRoot.matches(':hover'));return}
-  const a=e.target.closest('[data-sn]');if(a){snGo(SN_PAGE+ +a.dataset.sn);return}const d=e.target.closest('[data-sni]');if(d)snGo(+d.dataset.sni)});
-snRoot.addEventListener('scroll',e=>{const pg=e.target;if(!pg.classList||!pg.classList.contains('sn-pages'))return;const i=Math.round(pg.scrollLeft/Math.max(1,pg.clientWidth));if(i!==SN_PAGE){SN_PAGE=i;snDots()}},true);
-snRoot.addEventListener('input',e=>{if(e.target.id!=='snTx')return;SN_DIRTY=Date.now();clearTimeout(SN_T);const v=e.target.value;
-  SN_T=setTimeout(()=>{TTL_STORE.setNote(v).then(()=>{const s=snRoot.querySelector('.sn-page small');if(s)s.textContent=v?snWhen(new Date()):''}).catch(()=>toast('Could not save your note. Check your connection.'))},650)});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&SN_OPEN&&!snRoot.hidden){SN_STICK=false;snSet(false);if(snRoot.contains(document.activeElement))document.activeElement.blur()}});
-document.addEventListener('pointerdown',e=>{if(SN_OPEN&&!snRoot.contains(e.target)){SN_STICK=false;if(snRoot.contains(document.activeElement))document.activeElement.blur();snSet(false)}});
-// Other coaches' pages refresh every few seconds; a page someone else changed lights up the pin until it is looked at.
-setInterval(async()=>{if(snRoot.hidden||!TTL_STORE.refreshNote)return;const before=JSON.stringify(snNotes());await TTL_STORE.refreshNote().catch(()=>null);const N=snNotes();if(JSON.stringify(N)===before)return;
-  snRoot.querySelectorAll('.sn-page').forEach(pg=>{const n=pg.dataset.name;if(n===WHO)return;const x=N[n]||{},el=pg.querySelector('.sn-ro');if(!el)return;const t=x.t||'';if(el.textContent!==t&&(t||!el.querySelector('.sn-mt'))){el.textContent=t;pg.classList.remove('flash');void pg.offsetWidth;pg.classList.add('flash')}pg.querySelector('small').textContent=t&&x.at?snWhen(x.at):''});
-  snBadge();if(SN_OPEN)snDots()},5000);
+/* ---------- Quick chat: a message button in the top-right corner. The whole team talks here; it clears itself after 24 hours.
+   @Name tags a teammate: their button rings and a banner tells them, on whichever screen they are. ---------- */
+const QC_COL=['#3F59A7','#E0559B','#1E9E6A','#D9822B','#7A5AF8','#0F9BB3'];
+const qc=document.createElement('div');qc.className='qc-root';qc.hidden=true;app.appendChild(qc);
+const QKEY='ttl-chat-seen-'+WHO;let QC_SEEN=''; try{QC_SEEN=localStorage.getItem(QKEY)||''}catch(_){}
+let QC_OPEN=false,QC_TOLD=new Set(),QC_DRAFT='';
+const qcTeam=()=>TTL_STORE.coaches?TTL_STORE.coaches():[WHO];
+const qcMsgs=()=>(TTL_STORE.chat&&TTL_STORE.chat())||[];
+const qcNew=()=>qcMsgs().filter(m=>m.by!==WHO&&m.at>QC_SEEN);
+const qcTags=()=>qcNew().filter(m=>(m.to||[]).includes(WHO));
+const qcTime=at=>new Date(at).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});
+const qcCol=n=>QC_COL[Math.max(0,qcTeam().indexOf(n))%QC_COL.length];
+// @Name becomes a bold tag; only real teammates (or @all) count.
+function qcFind(text){const team=qcTeam(),to=new Set();String(text).replace(/@([A-Za-z][A-Za-z'-]*)/g,(m,n)=>{const k=n.toLowerCase();if(k==='all'||k==='team'||k==='everyone')team.forEach(x=>x!==WHO&&to.add(x));else{const hit=team.find(x=>x.toLowerCase()===k);if(hit&&hit!==WHO)to.add(hit)}return m});return [...to]}
+const qcText=t=>esc(t).replace(/@([A-Za-z][A-Za-z'-]*)/g,(m,n)=>{const k=n.toLowerCase();return ['all','team','everyone'].includes(k)||qcTeam().some(x=>x.toLowerCase()===k)?`<b class="qc-at">${m}</b>`:m});
+function qcList(){const M=qcMsgs();if(!M.length)return `<div class="qc-empty"><span aria-hidden="true">💬</span><b>No messages yet</b><p>Say something to the team. Type @ and a name to get someone's attention.</p></div>`;
+  return M.map((m,i)=>{const me=m.by===WHO,prev=M[i-1],first=!prev||prev.by!==m.by||Date.parse(m.at)-Date.parse(prev.at)>10*6e4,next=M[i+1],last=!next||next.by!==m.by||Date.parse(next.at)-Date.parse(m.at)>10*6e4,tag=(m.to||[]).includes(WHO);
+    return `${first&&!me?`<div class="qc-who" style="--c:${qcCol(m.by)}">${esc(m.by)}</div>`:''}<div class="qc-line${me?' me':''}${last?' last':''}${tag?' tag':''}">${!me?`<i class="qc-av" style="--c:${qcCol(m.by)}">${last?esc(m.by[0]):''}</i>`:''}<div class="qc-b" ${me?'':`style="--c:${qcCol(m.by)}"`}>${qcText(m.t)}</div></div>${last?`<div class="qc-t${me?' me':''}">${qcTime(m.at)}</div>`:''}`}).join('')}
+function qcBadge(){const btn=qc.querySelector('.qc-btn');if(!btn)return;const n=qcNew().length,t=qcTags().length,em=btn.querySelector('em');em.hidden=!n||QC_OPEN;em.textContent=t?'@':n;btn.classList.toggle('new',!!n&&!QC_OPEN);btn.classList.toggle('tag',!!t&&!QC_OPEN);
+  btn.setAttribute('aria-label',t?'Quick chat: someone tagged you':n?`Quick chat: ${n} new message${n===1?'':'s'}`:'Quick chat')}
+function qcSeen(){const M=qcMsgs();if(!M.length)return;const at=M[M.length-1].at;if(at>QC_SEEN){QC_SEEN=at;try{localStorage.setItem(QKEY,at)}catch(_){}}qcBadge();qcBanner(null)}
+function qcBanner(m){let b=qc.querySelector('.qc-ban');if(!m){if(b)b.remove();return}if(!b){b=document.createElement('button');b.type='button';b.className='qc-ban';qc.appendChild(b)}
+  b.innerHTML=`<i class="qc-av" style="--c:${qcCol(m.by)}">${esc(m.by[0])}</i><span><b>${esc(m.by)} tagged you</b><span>${esc(m.t.length>90?m.t.slice(0,90)+'…':m.t)}</span></span>`}
+function qcPaint(keepScroll){const box=qc.querySelector('.qc-msgs');if(!box)return;const atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<60;box.innerHTML=qcList();if(!keepScroll||atEnd)box.scrollTop=box.scrollHeight}
+function qcRender(){qc.innerHTML=`<button type="button" class="qc-btn" aria-expanded="false" aria-label="Quick chat"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.38 1.3 4.5 3.36 5.96-.14 1.2-.62 2.3-1.36 3.2-.2.24 0 .6.3.56 2.02-.24 3.6-.94 4.72-1.72.94.24 1.94.38 2.98.38 5.52 0 10-3.58 10-8.38S17.52 3 12 3Z"/></svg><em hidden></em></button>
+  <section class="qc-panel" role="dialog" aria-label="Quick chat"><header class="qc-h"><div><b>Quick chat</b><span>${qcTeam().map(esc).join(', ')} · clears after 24 hours</span></div><button type="button" class="qc-x" aria-label="Close chat">${svg(X_IC,13)}</button></header>
+    <div class="qc-msgs" aria-live="polite"></div>
+    <div class="qc-ats">${qcTeam().filter(n=>n!==WHO).map(n=>`<button type="button" data-at="${esc(n)}">@${esc(n)}</button>`).join('')}${qcTeam().length>2?'<button type="button" data-at="all">@all</button>':''}</div>
+    <form class="qc-form"><textarea class="qc-in" rows="1" maxlength="1000" placeholder="Message the team" aria-label="Message"></textarea><button type="submit" class="qc-send" aria-label="Send" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 11l6-6 6 6"/></svg></button></form></section>`;
+  qcPaint();qcBadge()}
+function qcSet(open){QC_OPEN=open;const p=qc.querySelector('.qc-panel'),b=qc.querySelector('.qc-btn');if(!p)return;p.classList.toggle('open',open);b.setAttribute('aria-expanded',open);
+  if(open){qcPaint();qcSeen();const inp=qc.querySelector('.qc-in');inp.value=QC_DRAFT;qcGrow(inp);if(matchMedia('(hover:hover)').matches)setTimeout(()=>inp.focus(),120)}else qcBadge()}
+function qcGrow(inp){inp.style.height='auto';inp.style.height=Math.min(120,inp.scrollHeight)+'px';qc.querySelector('.qc-send').disabled=!inp.value.trim()}
+function qcSend(){const inp=qc.querySelector('.qc-in'),text=inp.value.trim();if(!text)return;inp.value='';QC_DRAFT='';qcGrow(inp);
+  TTL_STORE.sendChat(text,qcFind(text)).catch(()=>toast('Message not sent. Check your connection.'));qcPaint();qcSeen();inp.focus()}
+qc.addEventListener('click',e=>{if(e.target.closest('.qc-btn')||e.target.closest('.qc-ban')){qcSet(!QC_OPEN||!!e.target.closest('.qc-ban'));return}if(e.target.closest('.qc-x')){qcSet(false);return}
+  const a=e.target.closest('[data-at]');if(a){const inp=qc.querySelector('.qc-in');inp.value=(inp.value&&!/\s$/.test(inp.value)?inp.value+' ':inp.value)+'@'+a.dataset.at+' ';QC_DRAFT=inp.value;qcGrow(inp);inp.focus()}});
+qc.addEventListener('submit',e=>{e.preventDefault();qcSend()});
+qc.addEventListener('input',e=>{if(e.target.classList.contains('qc-in')){QC_DRAFT=e.target.value;qcGrow(e.target)}});
+qc.addEventListener('keydown',e=>{if(e.target.classList&&e.target.classList.contains('qc-in')&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();qcSend()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&QC_OPEN&&!qc.hidden)qcSet(false)});
+document.addEventListener('pointerdown',e=>{if(QC_OPEN&&!qc.contains(e.target))qcSet(false)});
+// New messages arrive every few seconds. A tag shows a banner once and keeps the button ringing until the chat is opened.
+setInterval(async()=>{if(qc.hidden||document.visibilityState!=='visible'||!TTL_STORE.refreshChat)return;const before=qcMsgs().map(m=>m.id).join();await TTL_STORE.refreshChat().catch(()=>null);
+  if(qcMsgs().map(m=>m.id).join()===before){qcBadge();return}
+  if(QC_OPEN){qcPaint(true);qcSeen()}else{qcBadge();const t=qcTags().filter(m=>!QC_TOLD.has(m.id));if(t.length){t.forEach(m=>QC_TOLD.add(m.id));qcBanner(t[t.length-1])}}},4000);
 
 /* ---------- Home: the team, and adding a teammate (head coach only) ---------- */
 let ADDT=false;
@@ -349,9 +356,9 @@ home.addEventListener('submit',e=>{if(e.target.id!=='ttForm')return;e.preventDef
 /* ---------- Routing: #home, #portal, #dashboard, #sheet ---------- */
 let FROM='home';
 function show(r){
-  if(r==='sheet'){snRoot.hidden=true;if(!XOPEN)XS.open();return}
+  if(r==='sheet'){qc.hidden=true;if(!XOPEN)XS.open();return}
   if(XOPEN)XS.close();
-  home.hidden=r!=='home';dash.hidden=r!=='dashboard';snRoot.hidden=r!=='dashboard';if(r==='dashboard'&&!snRoot.firstChild)snRender();if(r!=='dashboard')snSet(false);wrap.style.display=r==='portal'?'':'none';
+  home.hidden=r!=='home';dash.hidden=r!=='dashboard';qc.hidden=false;if(!qc.firstChild){qcRender();const t=qcTags();if(t.length){t.forEach(m=>QC_TOLD.add(m.id));qcBanner(t[t.length-1])}}wrap.style.display=r==='portal'?'':'none';
   if(r==='home'){document.getElementById('thDate').textContent=today();document.getElementById('thHi').textContent=greet()+', '+WHO;document.getElementById('thCount').textContent=mine().length+' of your clients · '+CLIENTS.length+' in total';renderTeam()}
   if(r==='dashboard'){renderDash();loadFeeds()}
   if(r!=='sheet')FROM=r;

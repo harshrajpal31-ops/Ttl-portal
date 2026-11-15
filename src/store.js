@@ -36,8 +36,11 @@ async function must(q) {
   if (error) throw error;
 }
 
+const chatFrom = rows => rows.filter(x => x.key.startsWith('chat:') && x.value && Date.now() - Date.parse(x.value.at) < 24 * 3600e3)
+  .map(x => ({ id: x.key, ...x.value })).sort((a, b) => a.at.localeCompare(b.at));
+
 export function createStore(who) {
-  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {}, note: {}, team: [] };
+  const S = { clients: {}, edits: {}, feed: {}, meta: {}, rules: null, rows: {}, hist: [], weekly: {}, comments: {}, chat: [], team: [] };
   const L = {}; // listeners by key: 'clients', 'edits', 'feed', 'meta/sync', 'settings/rules', 'edits/<id>', 'feed/<day>'
   const savedFeed = new Set(); // feed item timestamps already in change_log
 
@@ -116,7 +119,7 @@ export function createStore(who) {
 
     // Cell comments on the Sheet: one settings row per client, key 'comment:<client id>', value { field: { t, by, at } }.
     S.comments = Object.fromEntries(settings.filter(x => x.key.startsWith('comment:')).map(x => [x.key.slice(8), x.value || {}]));
-    S.note = (settings.find(x => x.key === 'team_notes') || {}).value || {};        // sticky notes, one page per coach: { name: { t, at } }
+    S.chat = chatFrom(settings);                                                    // quick chat: last 24 hours only
     S.team = (settings.find(x => x.key === 'coaches') || {}).value || []; if (!Array.isArray(S.team)) S.team = [];             // teammates added from Home
     const tr = (settings.find(x => x.key === 'tag_rules') || {}).value;
     S.rules = tr ? Object.fromEntries(Object.entries(RULE_KEYS).filter(([, k]) => tr[k] != null).map(([d, k]) => [d, +tr[k]])) : undefined;
@@ -294,22 +297,22 @@ export function createStore(who) {
   }
 
   // ---- team: the shared sticky note and the list of coaches ----
-  // Each coach writes only on their own page. The row is re-read before saving so two people typing never overwrite each other.
-  function setNote(text) {
-    const mine = { t: text, at: new Date().toISOString() };
-    S.note = { ...S.note, [who]: mine };
+  // Quick chat. One settings row per message (key 'chat:<time>-<id>'), so two people sending at once never collide.
+  // Messages older than 24 hours are dropped from view and cleaned out of the database on the next send.
+  const DAY = 24 * 3600e3;
+  async function sendChat(text, to) {
+    const at = new Date().toISOString();
+    const msg = { id: 'chat:' + at + '-' + Math.random().toString(36).slice(2, 7), by: who, t: text, at, to: to || [] };
+    S.chat = [...S.chat, msg];
     return enqueue(async () => {
-      const { data, error } = await db.from('settings').select('value').eq('key', 'team_notes').maybeSingle();
-      if (error) throw error;
-      const value = { ...((data && data.value) || {}), [who]: mine };
-      await must(db.from('settings').upsert({ key: 'team_notes', value }));
-      S.note = { ...value, [who]: S.note[who] || mine };
+      await must(db.from('settings').insert({ key: msg.id, value: { by: msg.by, t: msg.t, at: msg.at, to: msg.to } }));
+      await db.from('settings').delete().like('key', 'chat:%').lt('key', 'chat:' + new Date(Date.now() - DAY).toISOString());
     });
   }
-  async function refreshNote() {
-    const { data, error } = await db.from('settings').select('value').eq('key', 'team_notes').maybeSingle();
-    if (!error && data && data.value) S.note = { ...data.value, ...(S.note[who] && (!data.value[who] || S.note[who].at > data.value[who].at) ? { [who]: S.note[who] } : {}) };
-    return S.note;
+  async function refreshChat() {
+    const { data, error } = await db.from('settings').select('key,value').like('key', 'chat:%').order('key');
+    if (!error && data) { const got = chatFrom(data), ids = new Set(got.map(m => m.id)); S.chat = [...got, ...S.chat.filter(m => !ids.has(m.id) && Date.now() - Date.parse(m.at) < 15000)]; }
+    return S.chat;
   }
   const coaches = () => {
     const all = [...new Set(['Harsh', 'Shrutika', ...S.team, ...Object.values(S.rows).map(r => r.client.coach)].filter(Boolean))];
@@ -407,9 +410,9 @@ export function createStore(who) {
     comment: (id, f) => (S.comments[id] || {})[f] || null,
     setComment,
     clearComments,
-    note: () => S.note,
-    setNote,
-    refreshNote,
+    chat: () => S.chat.filter(m => Date.now() - Date.parse(m.at) < DAY),
+    sendChat,
+    refreshChat,
     coaches,
     addCoach,
     addClient,
