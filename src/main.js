@@ -47,12 +47,14 @@ async function whoScreen() {
   app.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWho(EMAIL_LOGIN && b.dataset.w === OWNER ? '' : b.dataset.w); localStorage.removeItem('ttl-pick'); render(); });
 }
 
+const QUIET = '<div class="boot-q" role="status" aria-label="Loading"><span></span></div>';
 let started = false;
 async function portal() {
   if (started) return;
   started = true;
   const who = whoNow();
-  app.innerHTML = shell(`<h1>Loading clients…</h1><p class="muted">Twice the Lean</p>`);
+  // A quiet loader in the app's own background: a reload should feel like staying where you were, not like going back to the login card.
+  app.innerHTML = QUIET;
   const store = createStore(who);
   try { await store.load(); }
   catch (err) {
@@ -67,7 +69,7 @@ async function portal() {
   // Keep the loading card on top until Home / Dashboard are ready, so the client list never flashes first on a reload.
   const boot = document.createElement('div');
   boot.id = 'boot';
-  boot.innerHTML = shell(`<h1>Loading clients…</h1><p class="muted">Twice the Lean</p>`);
+  boot.innerHTML = QUIET;
   document.body.appendChild(boot);
   app.innerHTML = portalHTML;
   document.getElementById('whoName').textContent = who;

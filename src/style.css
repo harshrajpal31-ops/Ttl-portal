@@ -34,3 +34,10 @@ body { margin: 0; } /* the demo ran with no page margin; without this a light fr
 .auth .addmate button[type=submit] { margin-top: 6px; }
 .auth .small { font-size: 12.5px; margin-top: 10px; }
 #boot { position: fixed; inset: 0; z-index: 200; }
+/* Quiet loader for reloads: the app's background, and a small spinner that only shows if loading takes more than a moment */
+html { background: #F2F2F7; }
+.boot-q { position: fixed; inset: 0; background: #F2F2F7; display: grid; place-items: center; }
+.boot-q span { width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(63, 89, 167, .18); border-top-color: #3F59A7; opacity: 0; animation: bootspin .8s linear infinite, bootshow .2s ease-out .5s forwards; }
+@keyframes bootspin { to { transform: rotate(360deg); } }
+@keyframes bootshow { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .boot-q span { animation: bootshow .2s ease-out .5s forwards; } }
