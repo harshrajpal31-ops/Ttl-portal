@@ -379,6 +379,21 @@ mt.addEventListener('input',e=>{if(e.target.id==='mtIn')mt.querySelector('[data-
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!mt.hidden)mtClose()});
 home.addEventListener('click',e=>{if(e.target.id==='thTeamBtn')mtOpen()});
 
+/* ---------- Portal: Recent updates is a drawer on the right, opened from a bell button in the header ---------- */
+(()=>{const head=document.querySelector('main.wrap .head'),feed=document.getElementById('feed'),vb=document.getElementById('vbadge');if(!head||!feed)return;
+  const btn=document.createElement('button');btn.type='button';btn.className='feedbtn';btn.id='feedBtn';btn.setAttribute('aria-expanded','false');btn.setAttribute('aria-controls','feed');
+  btn.innerHTML=`${svg('<path d="M6 9a6 6 0 1 1 12 0c0 6 2.500 7 2.500 7h-17S6 15 6 9Z"/><path d="M10 20a2 2 0 0 0 4 0"/>',17)}<span>Updates</span><em hidden></em>`;
+  head.insertBefore(btn,document.getElementById('refreshBtn'));
+  const x=document.createElement('button');x.type='button';x.className='close feed-x';x.setAttribute('aria-label','Close recent updates');x.innerHTML=svg(X_IC,13);feed.querySelector('.feed-h').appendChild(x);
+  const scr=document.createElement('div');scr.className='feed-scrim';scr.hidden=true;feed.parentNode.insertBefore(scr,feed);
+  const badge=()=>{const em=btn.querySelector('em'),n=vb&&!vb.hidden?vb.textContent:'';em.hidden=!n;em.textContent=n;btn.setAttribute('aria-label',n?`Recent updates, ${n} new`:'Recent updates')};
+  if(vb)new MutationObserver(badge).observe(vb,{attributes:true,childList:true,characterData:true,subtree:true});badge();
+  let T=0;const set=open=>{feed.classList.toggle('open',open);scr.hidden=!open;btn.setAttribute('aria-expanded',open);clearTimeout(T);if(open&&typeof markSeen==='function')T=setTimeout(markSeen,1500)};
+  btn.addEventListener('click',()=>set(!feed.classList.contains('open')));x.addEventListener('click',()=>set(false));scr.addEventListener('click',()=>set(false));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&feed.classList.contains('open'))set(false)});
+  window.addEventListener('hashchange',()=>set(false));
+})();
+
 /* ---------- Routing: #home, #portal, #dashboard, #sheet ---------- */
 let FROM='home';
 function show(r){

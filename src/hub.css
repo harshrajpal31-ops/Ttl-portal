@@ -335,3 +335,42 @@ button.td-ltr{cursor:pointer}button.td-ltr:hover{background:var(--ground)}
   .tw-ghost .tw-veil{cursor:grabbing}
   body.tw-busy{user-select:none;-webkit-user-select:none;cursor:grabbing}
 }
+
+/* ---------- Portal: full width, Recent updates as a right drawer, Filter and Tags as wide panels of large options ---------- */
+main.wrap{max-width:none}
+@media (min-width:1100px){main.wrap{padding-left:max(32px,env(safe-area-inset-left,0px));padding-right:max(32px,env(safe-area-inset-right,0px))}}
+main.wrap .vswitch{display:none!important}
+main.wrap .layout{grid-template-columns:minmax(0,1fr)!important}
+main.wrap .main-col{display:flex!important}
+main.wrap .head{padding-right:64px} /* room for the chat button in the corner */
+.feedbtn{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border:0;border-radius:11px;background:#EEF1F8;color:#3F59A7;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.feedbtn+.refbtn{margin-left:8px}
+.feedbtn em{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:10px;background:#FF3B30;color:#fff;font-style:normal;font-size:12px;font-weight:700;display:grid;place-items:center;box-shadow:0 0 0 2px var(--ground)}
+@media (max-width:600px){.feedbtn{margin-left:0;flex:1;justify-content:center}.feedbtn+.refbtn{margin-left:0}main.wrap .head{padding-right:0}}
+main.wrap .feed{display:flex!important;position:fixed!important;z-index:70;top:0;right:0;bottom:0;width:min(380px,100vw);max-height:none!important;border-radius:22px 0 0 22px;padding:calc(18px + env(safe-area-inset-top,0px)) 18px 18px;overflow-y:auto;overscroll-behavior:contain;
+  box-shadow:-24px 0 60px -20px rgba(20,32,73,.35);transform:translateX(104%);visibility:hidden;transition:transform .32s cubic-bezier(.2,.85,.25,1),visibility 0s linear .32s}
+main.wrap .feed.open{transform:none;visibility:visible;transition:transform .32s cubic-bezier(.2,.85,.25,1),visibility 0s}
+.feed-scrim{position:fixed;inset:0;z-index:69;background:rgba(20,26,46,.18)}
+.feed-scrim[hidden]{display:none}
+.feed-x{margin-left:8px}
+@media (prefers-reduced-motion:reduce){main.wrap .feed,main.wrap .feed.open{transition:none}}
+/* Filter / Tags: a wide panel dropping from the top, options laid out across as large buttons */
+#filters.rmodal{place-items:start center;padding:max(86px,env(safe-area-inset-top,0px)) 16px 16px}
+#filters .rbox{width:min(1180px,100%);padding:20px 22px;border-radius:22px;gap:14px;animation:fdrop .26s cubic-bezier(.2,.85,.25,1)}
+@keyframes fdrop{from{transform:translateY(-14px);opacity:0}to{transform:none;opacity:1}}
+#filtersBody{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#filtersBody .fsec{flex:0 0 100%;margin:6px 0 0;font-size:13px}
+#filtersBody .fdiv{flex:0 0 100%;margin:8px 0 0}
+#filtersBody .fnote,#filtersBody .rlink{flex:0 0 100%}
+#filtersBody .frow2{width:auto;flex:0 0 auto;min-height:46px;padding:0 16px;gap:10px;border:1.5px solid var(--sep);border-radius:14px;background:var(--card);font-size:15.5px;font-weight:600;transition:background .15s,border-color .15s,transform .1s}
+#filtersBody .frow2:hover{border-color:var(--accent);background:#F4F6FC}
+#filtersBody .frow2:active{transform:scale(.97)}
+#filtersBody .frow2 span{flex:0 1 auto;white-space:nowrap}
+#filtersBody .frow2 em{font-size:13px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--fill);color:var(--label-2)}
+#filtersBody .frow2 .ck{display:none}
+#filtersBody .frow2.on{background:var(--accent);border-color:var(--accent);color:#fff}
+#filtersBody .frow2.on em{background:rgba(255,255,255,.22);color:#fff}
+@media (max-width:600px){#filters.rmodal{padding-top:16px}#filtersBody .frow2{min-height:44px;font-size:15px}}
+@media (prefers-reduced-motion:reduce){#filters .rbox{animation:none}}
+/* The chat button steps aside whenever a profile, filter panel, tag rules or the updates drawer is open, so it never covers their close buttons */
+body:has(#scrim:not([hidden])) .qc-root,body:has(.rmodal:not([hidden])) .qc-root,body:has(.feed.open) .qc-root,body:has(.mt-root:not([hidden])) .qc-root{display:none}
