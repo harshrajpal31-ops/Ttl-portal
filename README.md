@@ -24,3 +24,9 @@ npm run dev
 
 ## Test version
 The `screen-changes` branch is published by Netlify as a branch deploy (`screen-changes--<site>.netlify.app`). Design changes from the screens board go there first and move to `main` once Harsh approves. It uses the same database as the live portal. On that link only, the Dashboard shows sample tasks and calls until Notion and the calendar are connected.
+
+## Brain (assistant)
+
+- Panel: `public/brain.js` (ported from `handover/reference/brain.js`). Tools run in the browser through the portal's own functions, so every change is logged and undoable.
+- Server: `netlify/functions/brain.mjs` at `/api/brain`. Checks the coach's Supabase login, then calls Claude (`claude-opus-5-5`) with the key in the Netlify setting `ANTHROPIC_API_KEY` (never a `VITE_` setting).
+- Not connected yet: Notion tasks and Typeform profiles.
