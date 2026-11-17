@@ -100,6 +100,9 @@ async function portal() {
     await load('/sheet.js');
     store.fireAll();
     await load('/hub.js'); // Home screen + Dashboard, on top of the portal and the Sheet
+    // Brain: the assistant. Its server function checks this login token before using the Anthropic key.
+    window.TTL_TOKEN = async () => (await db.auth.getSession()).data.session?.access_token || '';
+    await load('/brain.js');
   } finally { boot.remove(); }
 
   // Pick up the other coach's changes when coming back to the tab, and every 5 minutes.

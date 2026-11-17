@@ -374,3 +374,6 @@ main.wrap .feed.open{transform:none;visibility:visible;transition:transform .32s
 @media (prefers-reduced-motion:reduce){#filters .rbox{animation:none}}
 /* The chat button steps aside whenever a profile, filter panel, tag rules or the updates drawer is open, so it never covers their close buttons */
 body:has(#scrim:not([hidden])) .qc-root,body:has(.rmodal:not([hidden])) .qc-root,body:has(.feed.open) .qc-root,body:has(.mt-root:not([hidden])) .qc-root{display:none}
+/* Brain's panel docks on the right on wide screens and pushes the page over, so nothing is covered */
+@media (min-width:901px){body{padding-right:var(--brainw,0px);transition:padding-right .25s ease}}
+body:has(#brain:not([hidden])) .qc-root{display:none}

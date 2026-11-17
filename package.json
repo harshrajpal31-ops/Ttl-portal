@@ -9,6 +9,7 @@
     "import": "node --env-file=.env scripts/import.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0",
     "@supabase/supabase-js": "^2.118.0",
     "write-excel-file": "^4.1.1"
   },
